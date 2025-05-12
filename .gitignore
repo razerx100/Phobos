@@ -1,0 +1,7 @@
+.vs
+Solution
+out
+build
+*.lib
+/CMakeSettings.json
+/CMakePresets.json
