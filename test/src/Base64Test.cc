@@ -13,7 +13,7 @@ TEST(Base64Test, Load24Bits1Test)
 		3u
 	};
 
-	Encoder24bits encoder{};
+	Encoder24Bits encoder{};
 
 	encoder.LoadData(std::data(data), std::size(data));
 
@@ -31,7 +31,7 @@ TEST(Base64Test, Load24Bits2Test)
 		2u, 3u
 	};
 
-	Encoder24bits encoder{};
+	Encoder24Bits encoder{};
 
 	encoder.LoadData(std::data(data), std::size(data));
 
@@ -49,7 +49,7 @@ TEST(Base64Test, Load24Bits3Test)
 		2u, 3u, 3u
 	};
 
-	Encoder24bits encoder{};
+	Encoder24Bits encoder{};
 
 	encoder.LoadData(std::data(data), std::size(data));
 
@@ -68,7 +68,7 @@ TEST(Base64Test, Load16BitsTest)
 			0xfff9u
 		};
 
-		Encoder16bits encoder{};
+		Encoder16Bits encoder{};
 
 		encoder.LoadData(std::data(data), std::size(data));
 
@@ -81,7 +81,7 @@ TEST(Base64Test, Load16BitsTest)
 			2u, 3u
 		};
 
-		Encoder16bits encoder{};
+		Encoder16Bits encoder{};
 
 		size_t loadedElements = encoder.LoadData(std::data(data), std::size(data));
 
@@ -100,7 +100,7 @@ TEST(Base64Test, Load16BitsTest)
 			2u, 3u, 7u
 		};
 
-		Encoder16bits encoder{};
+		Encoder16Bits encoder{};
 
 		std::uint16_t const* dataHandleU16 = std::data(data);
 
@@ -116,6 +116,73 @@ TEST(Base64Test, Load16BitsTest)
 		EXPECT_EQ(encoder.EncodeStr(), "AwAH") << "Wrong encoded string.";
 		EXPECT_EQ(loadedElements, 1u) << "Didn't load 1 element.";
 	}
+}
+
+TEST(Base64Test, Load32BitsTest)
+{
+	{
+		std::array<std::uint32_t, 1u> data
+		{
+			0xfffff9u
+		};
+
+		Encoder32Bits encoder{};
+
+		bool loaded = encoder.LoadData(data[0]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AP//") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(0u, 0u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "+Q==") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, false) << "Loaded the new value.";
+	}
+
+	{
+		std::array<std::uint32_t, 2u> data
+		{
+			2u, 3u
+		};
+
+		Encoder32Bits encoder{};
+
+		bool loaded = encoder.LoadData(data[0]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(data[1]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AgAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(0u, 0u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAM=") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, false) << "Loaded the new value.";
+	}
+
+	/*
+	{
+		std::array<std::uint32_t, 5u> data
+		{
+			2u, 3u, 7u, 99u, 5u
+		};
+
+		Encoder32Bits encoder{};
+
+		bool loaded = encoder.LoadData(data[0]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAIA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load.";
+
+		loaded = encoder.LoadData(data[1]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AwAH") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, loaded) << "Didn't load.";
+	}
+	*/
 }
 
 TEST(Base64Test, EncodingTest)

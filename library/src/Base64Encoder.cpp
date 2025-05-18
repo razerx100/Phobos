@@ -1,5 +1,3 @@
-#include <bit>
-#include <concepts>
 #include <Base64Encoder.hpp>
 
 namespace Phobos
@@ -19,7 +17,7 @@ static constexpr std::array s_6bitsOffsetMap
 };
 
 // Encoder 24 bits
-void Encoder24bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
+void Encoder24Bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
 {
 	std::uint32_t data = 0u;
 
@@ -59,17 +57,17 @@ void Encoder24bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
 	m_validByteCount = static_cast<std::uint32_t>(byteCount);
 }
 
-bool Encoder24bits::IsByteValid(size_t index) const noexcept
+bool Encoder24Bits::IsByteValid(size_t index) const noexcept
 {
 	return index < m_validByteCount;
 }
 
-bool Encoder24bits::AreAllBytesValid() const noexcept
+bool Encoder24Bits::AreAllBytesValid() const noexcept
 {
 	return m_validByteCount == 3u;
 }
 
-size_t Encoder24bits::Get6BitValue(size_t index) const noexcept
+size_t Encoder24Bits::Get6BitValue(size_t index) const noexcept
 {
 	auto bitOffset = static_cast<std::int64_t>(s_6bitsOffsetMap[index]);
 
@@ -87,12 +85,12 @@ size_t Encoder24bits::Get6BitValue(size_t index) const noexcept
 	return outputValue;
 }
 
-char Encoder24bits::Encode6bits(size_t index) const noexcept
+char Encoder24Bits::Encode6bits(size_t index) const noexcept
 {
 	return s_characterMap[Get6BitValue(index)];
 }
 
-char Encoder24bits::Encode6bitsWithCheck(size_t index) const noexcept
+char Encoder24Bits::Encode6bitsWithCheck(size_t index) const noexcept
 {
 	char encodedChar = '=';
 
@@ -104,7 +102,7 @@ char Encoder24bits::Encode6bitsWithCheck(size_t index) const noexcept
 	return encodedChar;
 }
 
-std::array<char, 4u> Encoder24bits::Encode() const noexcept
+std::array<char, 4u> Encoder24Bits::Encode() const noexcept
 {
 	return
 	{
@@ -115,7 +113,7 @@ std::array<char, 4u> Encoder24bits::Encode() const noexcept
 	};
 }
 
-std::array<char, 4u> Encoder24bits::EncodeWithCheck() const noexcept
+std::array<char, 4u> Encoder24Bits::EncodeWithCheck() const noexcept
 {
 	return
 	{
@@ -126,7 +124,7 @@ std::array<char, 4u> Encoder24bits::EncodeWithCheck() const noexcept
 	};
 }
 
-std::string Encoder24bits::EncodeStr() const noexcept
+std::string Encoder24Bits::EncodeStr() const noexcept
 {
 	return std::string
 	{
@@ -137,7 +135,7 @@ std::string Encoder24bits::EncodeStr() const noexcept
 	};
 }
 
-std::string Encoder24bits::EncodeStrWithCheck() const noexcept
+std::string Encoder24Bits::EncodeStrWithCheck() const noexcept
 {
 	return std::string
 	{
@@ -149,7 +147,7 @@ std::string Encoder24bits::EncodeStrWithCheck() const noexcept
 }
 
 // Encoder 16bits
-size_t Encoder16bits::LoadData(void const* dataHandle, size_t elementCount) noexcept
+size_t Encoder16Bits::LoadData(void const* dataHandle, size_t elementCount) noexcept
 {
 	size_t elementsLoaded = 0u;
 
@@ -193,7 +191,7 @@ size_t Encoder16bits::LoadData(void const* dataHandle, size_t elementCount) noex
 			++elementsLoaded;
 		}
 
-		if (elementCount >= 2u)
+		if (elementCount == 2u)
 		{
 			m_second = *(dataHandleU16 + 1u);
 
@@ -211,21 +209,27 @@ size_t Encoder16bits::LoadData(void const* dataHandle, size_t elementCount) noex
 	return elementsLoaded;
 }
 
-Encoder24bits Encoder16bits::LoadEncoder24bits() const noexcept
+Encoder24Bits Encoder16Bits::LoadEncoder24bits() const noexcept
 {
-	Encoder24bits encoder{};
+	Encoder24Bits encoder{};
 
+	// If there is a remaining value, it will be on the last byte of the second value, so load
+	// the first 24 bits. Or even if there are no remaining values but the the valid byte count
+	// is 2u, that would be on the first value, so load that.
 	if (m_hasRemainingValue || m_validByteCount == 2u)
 		encoder.LoadData(&m_first, m_validByteCount);
 	else
+		// If there is only one valid byte, it will be on the second byte, as we shouldn't load
+		// just an 8bit value, and on 16bits data, valid byte can only be 1 from the leftover
+		// 8bit from another 16bit data.
 		encoder.LoadData(reinterpret_cast<std::uint8_t const*>(&m_first) + 1u, m_validByteCount);
 
 	return encoder;
 }
 
-std::array<char, 4u> Encoder16bits::Encode() const noexcept
+std::array<char, 4u> Encoder16Bits::Encode() const noexcept
 {
-	Encoder24bits encoder = LoadEncoder24bits();
+	Encoder24Bits encoder = LoadEncoder24bits();
 
 	std::array<char, 4u> output{};
 
@@ -237,9 +241,9 @@ std::array<char, 4u> Encoder16bits::Encode() const noexcept
 	return output;
 }
 
-std::string Encoder16bits::EncodeStr() const noexcept
+std::string Encoder16Bits::EncodeStr() const noexcept
 {
-	Encoder24bits encoder = LoadEncoder24bits();
+	Encoder24Bits encoder = LoadEncoder24bits();
 
 	std::string output{};
 
@@ -251,9 +255,65 @@ std::string Encoder16bits::EncodeStr() const noexcept
 	return output;
 }
 
+// Encoder 32 Bits
+Encoder24Bits Encoder32Bits::LoadEncoder24bits() const noexcept
+{
+	Encoder24Bits encoder{};
+
+	encoder.LoadData(
+		&m_storedValue, std::min(static_cast<std::uint32_t>(m_validByteCount), 3u)
+	);
+
+	return encoder;
+}
+
+std::array<char, 4u> Encoder32Bits::Encode() const noexcept
+{
+	Encoder24Bits encoder = LoadEncoder24bits();
+
+	std::array<char, 4u> output{};
+
+	if (encoder.AreAllBytesValid())
+		output = encoder.Encode();
+	else
+		output = encoder.EncodeWithCheck();
+
+	return output;
+}
+
+std::string Encoder32Bits::EncodeStr() const noexcept
+{
+	Encoder24Bits encoder = LoadEncoder24bits();
+
+	std::string output{};
+
+	if (encoder.AreAllBytesValid())
+		output = encoder.EncodeStr();
+	else
+		output = encoder.EncodeStrWithCheck();
+
+	return output;
+}
+
+// Encoder 64 Bits
+std::array<Encoder24Bits, 2u> Encoder64Bits::LoadEncoder24bits() const noexcept
+{
+	return {};
+}
+
+std::array<char, 8u> Encoder64Bits::Encode() const noexcept
+{
+	return {};
+}
+
+std::string Encoder64Bits::EncodeStr() const noexcept
+{
+	return {};
+}
+
 template<bool checkLastBytes>
 static void Encode24Bits(
-	Encoder24bits& encoder, std::vector<std::uint8_t>& encodedData, size_t& encodedCharIndex
+	Encoder24Bits& encoder, std::vector<std::uint8_t>& encodedData, size_t& encodedCharIndex
 ) noexcept {
 	// Only need to check for validity on the last few bits, as that might not be 24bits.
 	// Which I will do outside of the loop.
@@ -283,7 +343,7 @@ static void EncodeBase64(
 
 		for (size_t index = 0u; index < byteCount; ++index)
 		{
-			Encoder24bits encoder{};
+			Encoder24Bits encoder{};
 
 			encoder.LoadData(dataHandleU8 + elementOffset, 3u);
 
@@ -316,7 +376,7 @@ static void EncodeBase64(
 		{
 			++elementOffset;
 
-			Encoder24bits encoder{};
+			Encoder24Bits encoder{};
 
 			// Since we must include half of the 16bits, we will have to access the 4th byte
 			// to swap, but it should be fine and there should be 8bits of valid remainder
@@ -383,7 +443,7 @@ static void EncodeBase64(
 				// Need to do some sort of reset when the temp bit count will reach 24u.
 			}
 
-			Encoder24bits encoder{};
+			Encoder24Bits encoder{};
 
 			//encoder.LoadData(&processedValue.to_ullong(), 3u);
 
@@ -401,7 +461,7 @@ static void EncodeBase64(
 		{
 			auto dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
 
-			Encoder24bits encoder{};
+			Encoder24Bits encoder{};
 
 			encoder.LoadData(dataHandleU8 + elementOffset, byteRemainder);
 
@@ -411,7 +471,7 @@ static void EncodeBase64(
 		{
 			auto dataHandleU16 = static_cast<std::uint16_t const*>(dataHandle);
 
-			Encoder24bits encoder{};
+			Encoder24Bits encoder{};
 
 			const std::uint16_t tempData = *(dataHandleU16 + elementOffset);
 
