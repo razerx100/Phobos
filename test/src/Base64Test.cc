@@ -60,34 +60,62 @@ TEST(Base64Test, Load24Bits3Test)
 	EXPECT_EQ(encoder.EncodeStr(), "AgMD") << "Wrong encoded string.";
 }
 
-TEST(Base64Test, Load24Bits4Test)
+TEST(Base64Test, Load16BitsTest)
 {
-	std::array<std::uint32_t, 1u> data
 	{
-		0xfffff9u
-	};
+		std::array<std::uint16_t, 1u> data
+		{
+			0xfff9u
+		};
 
-	Encoder24bits encoder{};
+		Encoder16bits encoder{};
 
-	encoder.LoadData(std::data(data), 3u);
+		encoder.LoadData(std::data(data), std::size(data));
 
-	EXPECT_EQ(encoder.IsByteValid(0u), true) << "The first byte is false.";
-	EXPECT_EQ(encoder.IsByteValid(1u), true) << "The second byte is false.";
+		EXPECT_EQ(encoder.EncodeStr(), "//k=") << "Wrong encoded string.";
+	}
 
-	auto encodededData = EncodeBase64(
-		std::data(data), std::size(data), sizeof(decltype(data)::value_type)
-	);
+	{
+		std::array<std::uint16_t, 2u> data
+		{
+			2u, 3u
+		};
 
-	/*
-	EXPECT_EQ(encodededData[0], 'A') << "The first character isn't A.";
-	EXPECT_EQ(encodededData[1], 'P') << "The second character isn't P.";
-	EXPECT_EQ(encodededData[2], '/') << "The third character isn't /.";
-	EXPECT_EQ(encodededData[3], '/') << "The fourth character isn't /.";
-	EXPECT_EQ(encodededData[4], '+') << "The fifth character isn't +.";
-	EXPECT_EQ(encodededData[5], 'Q') << "The sixth character isn't Q.";
-	EXPECT_EQ(encodededData[6], '=') << "The seventh character isn't =.";
-	EXPECT_EQ(encodededData[7], '=') << "The eighth character isn't =.";
-	*/
+		Encoder16bits encoder{};
+
+		size_t loadedElements = encoder.LoadData(std::data(data), std::size(data));
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAIA") << "Wrong encoded string.";
+		EXPECT_EQ(loadedElements, 2u) << "Didn't load 2 elements.";
+
+		loadedElements = encoder.LoadData(nullptr, 0u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "Aw==") << "Wrong encoded string.";
+		EXPECT_EQ(loadedElements, 0u) << "Loaded elements.";
+	}
+
+	{
+		std::array<std::uint16_t, 3u> data
+		{
+			2u, 3u, 7u
+		};
+
+		Encoder16bits encoder{};
+
+		std::uint16_t const* dataHandleU16 = std::data(data);
+
+		size_t loadedElements = encoder.LoadData(dataHandleU16, 2u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAIA") << "Wrong encoded string.";
+		EXPECT_EQ(loadedElements, 2u) << "Didn't load 2 elements.";
+
+		dataHandleU16 += loadedElements;
+
+		loadedElements = encoder.LoadData(dataHandleU16, 1u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AwAH") << "Wrong encoded string.";
+		EXPECT_EQ(loadedElements, 1u) << "Didn't load 1 element.";
+	}
 }
 
 TEST(Base64Test, EncodingTest)

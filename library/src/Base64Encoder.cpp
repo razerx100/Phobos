@@ -18,6 +18,7 @@ static constexpr std::array s_6bitsOffsetMap
 	23u, 17u, 11u, 5u
 };
 
+// Encoder 24 bits
 void Encoder24bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
 {
 	std::uint32_t data = 0u;
@@ -61,6 +62,11 @@ void Encoder24bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
 bool Encoder24bits::IsByteValid(size_t index) const noexcept
 {
 	return index < m_validByteCount;
+}
+
+bool Encoder24bits::AreAllBytesValid() const noexcept
+{
+	return m_validByteCount == 3u;
 }
 
 size_t Encoder24bits::Get6BitValue(size_t index) const noexcept
@@ -140,6 +146,109 @@ std::string Encoder24bits::EncodeStrWithCheck() const noexcept
 		Encode6bitsWithCheck(2u),
 		Encode6bitsWithCheck(3u)
 	};
+}
+
+// Encoder 16bits
+size_t Encoder16bits::LoadData(void const* dataHandle, size_t elementCount) noexcept
+{
+	size_t elementsLoaded = 0u;
+
+	auto dataHandleU16 = static_cast<std::uint16_t const*>(dataHandle);
+
+	constexpr bool isLittleEndian = std::endian::native == std::endian::little;
+
+	m_validByteCount = 0u;
+
+	if (m_hasRemainingValue)
+	{
+		m_first = m_second;
+
+		++m_validByteCount;
+
+		if (elementCount >= 1u)
+		{
+			m_second = *dataHandleU16;
+
+			if constexpr (isLittleEndian)
+				m_second = std::byteswap(m_second);
+
+			m_validByteCount += 2u;
+
+			elementsLoaded = 1u;
+		}
+
+		m_hasRemainingValue = false;
+	}
+	else
+	{
+		if (elementCount >= 1)
+		{
+			m_first = *dataHandleU16;
+
+			if constexpr (isLittleEndian)
+				m_first = std::byteswap(m_first);
+
+			m_validByteCount += 2u;
+
+			++elementsLoaded;
+		}
+
+		if (elementCount >= 2u)
+		{
+			m_second = *(dataHandleU16 + 1u);
+
+			if constexpr (isLittleEndian)
+				m_second = std::byteswap(m_second);
+
+			++m_validByteCount;
+
+			m_hasRemainingValue = true;
+
+			++elementsLoaded;
+		}
+	}
+
+	return elementsLoaded;
+}
+
+Encoder24bits Encoder16bits::LoadEncoder24bits() const noexcept
+{
+	Encoder24bits encoder{};
+
+	if (m_hasRemainingValue || m_validByteCount == 2u)
+		encoder.LoadData(&m_first, m_validByteCount);
+	else
+		encoder.LoadData(reinterpret_cast<std::uint8_t const*>(&m_first) + 1u, m_validByteCount);
+
+	return encoder;
+}
+
+std::array<char, 4u> Encoder16bits::Encode() const noexcept
+{
+	Encoder24bits encoder = LoadEncoder24bits();
+
+	std::array<char, 4u> output{};
+
+	if (encoder.AreAllBytesValid())
+		output = encoder.Encode();
+	else
+		output = encoder.EncodeWithCheck();
+
+	return output;
+}
+
+std::string Encoder16bits::EncodeStr() const noexcept
+{
+	Encoder24bits encoder = LoadEncoder24bits();
+
+	std::string output{};
+
+	if (encoder.AreAllBytesValid())
+		output = encoder.EncodeStr();
+	else
+		output = encoder.EncodeStrWithCheck();
+
+	return output;
 }
 
 template<bool checkLastBytes>
