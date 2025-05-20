@@ -219,14 +219,24 @@ TEST(Base64Test, Load32BitsTest)
 	}
 }
 
-TEST(Base64Test, EncodingTest)
+TEST(Base64Test, Load64BitsTest)
 {
-	std::array<std::int32_t, 3u> data
 	{
-		2, 3, 3
-	};
+		std::array<std::uint64_t, 1u> data
+		{
+			0xfffffffff9llu
+		};
 
-	//auto encodededData = Encode(std::data(data), 3u * 4u);
+		Encoder64Bits encoder{};
 
-	//std::string testStr = "AAAAAgAAAAMAAAAD";
+		bool loaded = encoder.LoadData(data[0]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAA////") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(0u, 0u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "//k=") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, false) << "Loaded the new value.";
+	}
 }

@@ -298,17 +298,88 @@ std::string Encoder32Bits::EncodeStr() const noexcept
 // Encoder 64 Bits
 std::array<Encoder24Bits, 2u> Encoder64Bits::LoadEncoder24bits() const noexcept
 {
-	return {};
+	std::array<Encoder24Bits, 2u> encoders{};
+
+	Encoder24Bits& encoder1 = encoders[0];
+	Encoder24Bits& encoder2 = encoders[1];
+
+	encoder1.LoadData(
+		&m_storedValue, std::min(static_cast<std::uint32_t>(m_validByteCount), 3u)
+	);
+
+	if (m_validByteCount > 3u)
+	{
+		const auto validByteCount = static_cast<std::uint32_t>(m_validByteCount) - 3u;
+
+		encoder2.LoadData(
+			reinterpret_cast<std::uint8_t const*>(&m_storedValue) + 3u,
+			std::min(validByteCount, 3u)
+		);
+	}
+
+	return encoders;
 }
 
 std::array<char, 8u> Encoder64Bits::Encode() const noexcept
 {
-	return {};
+	std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+
+	const Encoder24Bits& encoder1 = encoders[0];
+	const Encoder24Bits& encoder2 = encoders[1];
+
+	std::array<char, 8u> output{ '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' };
+
+	{
+		std::array<char, 4u> output1{};
+
+		if (encoder1.AreAllBytesValid())
+			output1 = encoder1.Encode();
+		else
+			output1 = encoder1.EncodeWithCheck();
+
+		memcpy(std::data(output), std::data(output1), 4u);
+	}
+
+	if (m_validByteCount > 3u)
+	{
+		std::array<char, 4u> output2{};
+
+		if (encoder2.AreAllBytesValid())
+			output2 = encoder2.Encode();
+		else
+			output2 = encoder2.EncodeWithCheck();
+
+		memcpy(std::data(output) + 4u, std::data(output2), 4u);
+	}
+
+	return output;
 }
 
 std::string Encoder64Bits::EncodeStr() const noexcept
 {
-	return {};
+	std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+
+	const Encoder24Bits& encoder1 = encoders[0];
+	const Encoder24Bits& encoder2 = encoders[1];
+
+	std::string output{};
+
+	{
+		if (encoder1.AreAllBytesValid())
+			output += encoder1.EncodeStr();
+		else
+			output += encoder1.EncodeStrWithCheck();
+	}
+
+	if (m_validByteCount > 3u)
+	{
+		if (encoder2.AreAllBytesValid())
+			output += encoder2.EncodeStr();
+		else
+			output += encoder2.EncodeStrWithCheck();
+	}
+
+	return output;
 }
 
 template<bool checkLastBytes>
