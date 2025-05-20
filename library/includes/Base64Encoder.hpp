@@ -120,8 +120,6 @@ public:
 
 		bool isNewValueLoaded = false;
 
-		// Load the new value
-		//if (elementCount && m_remainingByteCount < integralByteCount)
 		// Load the extra bits into stored-value.
 		if (elementCount)
 		{

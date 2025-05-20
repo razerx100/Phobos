@@ -239,4 +239,72 @@ TEST(Base64Test, Load64BitsTest)
 		EXPECT_EQ(encoder.EncodeStr(), "//k=") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
+
+	{
+		std::array<std::uint64_t, 2u> data
+		{
+			2u, 3u
+		};
+
+		Encoder64Bits encoder{};
+
+		bool loaded = encoder.LoadData(data[0]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAAAAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(data[1]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAIAAAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(0u, 0u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAAAw==") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, false) << "Loaded the new value.";
+	}
+
+	{
+		std::array<std::uint64_t, 5u> data
+		{
+			2u, 3u, 7u, 99u, 5u
+		};
+
+		Encoder64Bits encoder{};
+
+		bool loaded = encoder.LoadData(data[0]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAAAAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(data[1]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAIAAAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(data[2]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAAAwAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(data[3]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAAAAAH") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(data[4]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAAAAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, false) << "Loaded the new value.";
+
+		loaded = encoder.LoadData(data[4]);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AGMAAAAA") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, true) << "Didn't load the new value.";
+
+		loaded = encoder.LoadData(0u, 0u);
+
+		EXPECT_EQ(encoder.EncodeStr(), "AAAABQ==") << "Wrong encoded string.";
+		EXPECT_EQ(loaded, false) << "Loaded the new value.";
+	}
 }
