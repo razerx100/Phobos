@@ -382,180 +382,6 @@ std::string Encoder64Bits::EncodeStr() const noexcept
 	return output;
 }
 
-template<bool checkLastBytes>
-static void Encode24Bits(
-	Encoder24Bits& encoder, std::vector<std::uint8_t>& encodedData, size_t& encodedCharIndex
-) noexcept {
-	// Only need to check for validity on the last few bits, as that might not be 24bits.
-	// Which I will do outside of the loop.
-	if constexpr (checkLastBytes)
-		for (size_t index = 0u; index < 4u; ++index)
-			encodedData[encodedCharIndex] = encoder.Encode6bitsWithCheck(index);
-	else
-		for (size_t index = 0u; index < 4u; ++index)
-			encodedData[encodedCharIndex] = encoder.Encode6bits(index);
-
-	++encodedCharIndex;
-}
-
-template<bool isLittleEndian, size_t primitiveSize>
-static void EncodeBase64(
-	void const* dataHandle, std::vector<std::uint8_t>& encodedData,
-	size_t bits24Count, size_t remainder24BitCount
-) noexcept {
-	size_t elementOffset    = 0u;
-	size_t encodedCharIndex = 0u;
-
-	if constexpr(primitiveSize == 1u)
-	{
-		auto dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
-
-		const size_t byteCount = bits24Count * 24u / 8u;
-
-		for (size_t index = 0u; index < byteCount; ++index)
-		{
-			Encoder24Bits encoder{};
-
-			encoder.LoadData(dataHandleU8 + elementOffset, 3u);
-
-			Encode24Bits<false>(encoder, encodedData, encodedCharIndex);
-
-			++elementOffset;
-		}
-	}
-	else if constexpr (primitiveSize == 2u)
-	{
-		struct
-		{
-			std::uint16_t first;
-			std::uint16_t second;
-		} tempValue { 0u, 0u };
-
-		auto dataHandleU16 = static_cast<std::uint16_t const*>(dataHandle);
-
-		const size_t byte2Count = bits24Count * 24u / 16u;
-
-		if (byte2Count)
-		{
-			tempValue.second = *dataHandleU16;
-
-			if constexpr (isLittleEndian)
-				tempValue.second = std::byteswap(tempValue.second);
-		}
-
-		for (size_t index = 0u; index < byte2Count; ++index)
-		{
-			++elementOffset;
-
-			Encoder24Bits encoder{};
-
-			// Since we must include half of the 16bits, we will have to access the 4th byte
-			// to swap, but it should be fine and there should be 8bits of valid remainder
-			// after the end.
-			tempValue.first  = tempValue.second;
-			tempValue.second = *(dataHandleU16 + elementOffset);
-
-			if constexpr (isLittleEndian)
-				tempValue.second = std::byteswap(tempValue.second);
-
-			encoder.LoadData(&tempValue, 3u);
-
-			Encode24Bits<false>(encoder, encodedData, encodedCharIndex);
-		}
-	}
-	else if constexpr (primitiveSize == 4u)
-	{
-		auto dataHandleU32 = static_cast<std::uint32_t const*>(dataHandle);
-
-		std::bitset<64> tempValue = 0u;
-		size_t tempBitCount       = 0u;
-
-		for (size_t index = 0u; index < bits24Count; ++index)
-		{
-			std::bitset<64> processedValue = 0u;
-			std::bitset<64> currentValue   = *(dataHandleU32 + elementOffset);
-
-			if constexpr (isLittleEndian)
-				currentValue = std::byteswap(currentValue.to_ullong());
-
-			// If there are any temp bits left, load them up first.
-
-			size_t bitsToProcess = 24u;
-
-			if (tempBitCount)
-			{
-				processedValue |= tempValue;
-				processedValue <<= tempBitCount;
-
-				bitsToProcess -= tempBitCount;
-			}
-
-			{
-				const size_t currentBitStartIndex = std::size(currentValue) - 1u;
-
-				for (size_t cIndex = 0u; cIndex < bitsToProcess; ++cIndex)
-				{
-					processedValue[cIndex] = currentValue[currentBitStartIndex];
-
-					currentValue <<= 1u;
-				}
-
-				constexpr size_t primitiveBitCount = primitiveSize * 8u;
-
-				tempBitCount = primitiveBitCount - bitsToProcess;
-
-				for (size_t cIndex = 0u; cIndex < tempBitCount; ++cIndex)
-				{
-					tempValue[cIndex] = currentValue[currentBitStartIndex];
-
-					currentValue <<= 1u;
-				}
-
-				// Need to do some sort of reset when the temp bit count will reach 24u.
-			}
-
-			Encoder24Bits encoder{};
-
-			//encoder.LoadData(&processedValue.to_ullong(), 3u);
-
-			Encode24Bits<false>(encoder, encodedData, encodedCharIndex);
-
-			++elementOffset;
-		}
-	}
-
-	if (remainder24BitCount)
-	{
-		const size_t byteRemainder = remainder24BitCount / 8u;
-
-		if constexpr(primitiveSize == 1u)
-		{
-			auto dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
-
-			Encoder24Bits encoder{};
-
-			encoder.LoadData(dataHandleU8 + elementOffset, byteRemainder);
-
-			Encode24Bits<true>(encoder, encodedData, encodedCharIndex);
-		}
-		else if constexpr (primitiveSize == 2u)
-		{
-			auto dataHandleU16 = static_cast<std::uint16_t const*>(dataHandle);
-
-			Encoder24Bits encoder{};
-
-			const std::uint16_t tempData = *(dataHandleU16 + elementOffset);
-
-			encoder.LoadData(
-				reinterpret_cast<std::uint8_t const*>(&tempData) + primitiveSize - byteRemainder,
-				byteRemainder
-			);
-
-			Encode24Bits<true>(encoder, encodedData, encodedCharIndex);
-		}
-	}
-}
-
 std::vector<std::uint8_t> EncodeBase64(
 	void const* dataHandle, size_t elementCount, size_t primitiveSize
 ) noexcept {
@@ -579,6 +405,7 @@ std::vector<std::uint8_t> EncodeBase64(
 	// Not constexpr so can check on the runtime.
 	const bool isLittleEndian = std::endian::native == std::endian::little;
 
+	/*
 	if (isLittleEndian)
 	{
 		if (primitiveSize == 1u)
@@ -601,6 +428,7 @@ std::vector<std::uint8_t> EncodeBase64(
 		else if (primitiveSize == 8u)
 			EncodeBase64<false, 8u>(dataHandle, encodedData, bits24Count, bits24Remainder);
 	}
+	*/
 
 	return encodedData;
 }
