@@ -152,11 +152,15 @@ public:
 
 		constexpr size_t remainingByteCountPerIntegral = integralByteCount % 3u;
 
-		if (elementCount)
-			m_remainingByteCount += static_cast<std::uint8_t>(remainingByteCountPerIntegral);
+		// We don't want to add any extra remaining bytes if the element count is zero.
+		// Element count more than 1 would be invalid.
+		m_remainingByteCount += static_cast<std::uint8_t>(
+			elementCount * remainingByteCountPerIntegral
+		);
 
+		// We also won't be loading any extra valid bytes if the element count is zero.
 		const size_t newlyLoadedValidByteCount
-			=  elementCount ? integralByteCount - m_remainingByteCount : 0u;
+			= elementCount * integralByteCount - m_remainingByteCount;
 
 		// Load the extra bits into remaining-bytes.
 		{
