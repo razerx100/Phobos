@@ -60,6 +60,17 @@ TEST(Base64Test, Load24Bits3Test)
 	EXPECT_EQ(encoder.EncodeStr(), "AgMD") << "Wrong encoded string.";
 }
 
+TEST(Base64Test, Load24Bits4Test)
+{
+	Encoder24Bits encoder{};
+
+	EXPECT_EQ(encoder.IsByteValid(0u), false) << "The first byte is true.";
+	EXPECT_EQ(encoder.IsByteValid(1u), false) << "The second byte is true.";
+	EXPECT_EQ(encoder.IsByteValid(2u), false) << "The third byte is true.";
+
+	EXPECT_EQ(encoder.EncodeStrWithCheck(), "====") << "Wrong encoded string.";
+}
+
 TEST(Base64Test, Load16BitsTest)
 {
 	{
