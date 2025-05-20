@@ -99,7 +99,7 @@ public:
 	// Since there are more than 24 bits, there will always be extra bits. And at some point
 	// that extra bit count will reach the Integral's bit limit and then the function will load
 	// the extra bits fully instead of the argument and return false.
-	// We need a way to load the remaining bits, in such case the element count should be 0u.
+	// We need a way to load the last remaining bits, in such case the element count should be 0u.
 	// Element count which is more than 1 would also be treated as 1, as we can't pass more
 	// than 1 element.
 	bool LoadData(Integral_t currentValue, size_t elementCount = 1u) noexcept
@@ -121,54 +121,61 @@ public:
 		bool isNewValueLoaded = false;
 
 		// Load the new value
-		if (elementCount && m_remainingByteCount < integralByteCount)
+		//if (elementCount && m_remainingByteCount < integralByteCount)
+		// Load the extra bits into stored-value.
+		if (elementCount)
 		{
-			constexpr size_t remainingByteCountPerIntegral = integralByteCount % 3u;
+			const size_t extraBytesToLoad = integralByteCount - m_remainingByteCount;
 
-			// Load the extra bits into stored-value.
-			{
-				const size_t extraBytesToLoad = integralByteCount - m_remainingByteCount;
+			Integral_t tempStoredValue{ m_storedValue };
+			Integral_t tempCurrentValue{ currentValue };
 
-				Integral_t tempStoredValue{ m_storedValue };
-				Integral_t tempCurrentValue{ currentValue };
+			memcpy(
+				reinterpret_cast<std::uint8_t*>(&tempStoredValue) + m_remainingByteCount,
+				reinterpret_cast<std::uint8_t*>(&tempCurrentValue),
+				extraBytesToLoad
+			);
 
-				memcpy(
-					reinterpret_cast<std::uint8_t*>(&tempStoredValue) + m_remainingByteCount,
-					reinterpret_cast<std::uint8_t*>(&tempCurrentValue),
-					extraBytesToLoad
-				);
+			m_storedValue = tempStoredValue;
+		}
 
-				m_storedValue = tempStoredValue;
-			}
+		if (m_remainingByteCount == integralByteCount || !elementCount)
+		{
+			m_remainingByteCount = 0u;
 
-			m_remainingByteCount += static_cast<std::uint8_t>(remainingByteCountPerIntegral);
-
-			const size_t newlyLoadedValidByteCount = integralByteCount - m_remainingByteCount;
-
-			// Load the extra bits into remaining-bits.
-			{
-				Integral_t tempRemainingValue{ 0u };
-				Integral_t tempCurrentValue{ currentValue };
-
-				memcpy(
-					reinterpret_cast<std::uint8_t*>(&tempRemainingValue),
-					reinterpret_cast<std::uint8_t*>(&tempCurrentValue)
-					+ newlyLoadedValidByteCount,
-					m_remainingByteCount
-				);
-
-				m_remainingBytes = tempRemainingValue;
-			}
-
-			m_validByteCount += static_cast<std::uint8_t>(newlyLoadedValidByteCount);
-
-			isNewValueLoaded = true;
+			// If the remaining Byte count and the integral byte count are same,
+			// then we will have to load the extra bytes from the old remaining bytes.
+			// It is not needed for when the element count is zero, but should be
+			// fine as we won't load the value if the element count is zero.
+			currentValue         = m_remainingBytes;
 		}
 		else
+			isNewValueLoaded = true;
+
+		constexpr size_t remainingByteCountPerIntegral = integralByteCount % 3u;
+
+		if (elementCount)
+			m_remainingByteCount += static_cast<std::uint8_t>(remainingByteCountPerIntegral);
+
+		const size_t newlyLoadedValidByteCount
+			=  elementCount ? integralByteCount - m_remainingByteCount : 0u;
+
+		// Load the extra bits into remaining-bytes.
 		{
-			m_remainingBytes     = 0u;
-			m_remainingByteCount = 0u;
+			Integral_t tempRemainingValue{ 0u };
+			Integral_t tempCurrentValue{ currentValue };
+
+			memcpy(
+				reinterpret_cast<std::uint8_t*>(&tempRemainingValue),
+				reinterpret_cast<std::uint8_t*>(&tempCurrentValue)
+				+ newlyLoadedValidByteCount,
+				m_remainingByteCount
+			);
+
+			m_remainingBytes = tempRemainingValue;
 		}
+
+		m_validByteCount += static_cast<std::uint8_t>(newlyLoadedValidByteCount);
 
 		return isNewValueLoaded;
 	}
