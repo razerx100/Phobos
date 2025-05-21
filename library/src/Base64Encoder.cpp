@@ -231,28 +231,28 @@ std::array<char, 4u> Encoder16Bits::Encode() const noexcept
 {
 	Encoder24Bits encoder = LoadEncoder24bits();
 
-	std::array<char, 4u> output{};
+	return encoder.Encode();
+}
 
-	if (encoder.AreAllBytesValid())
-		output = encoder.Encode();
-	else
-		output = encoder.EncodeWithCheck();
+std::array<char, 4u> Encoder16Bits::EncodeWithCheck() const noexcept
+{
+	Encoder24Bits encoder = LoadEncoder24bits();
 
-	return output;
+	return encoder.EncodeWithCheck();
 }
 
 std::string Encoder16Bits::EncodeStr() const noexcept
 {
 	Encoder24Bits encoder = LoadEncoder24bits();
 
-	std::string output{};
+	return encoder.EncodeStr();
+}
 
-	if (encoder.AreAllBytesValid())
-		output = encoder.EncodeStr();
-	else
-		output = encoder.EncodeStrWithCheck();
+std::string Encoder16Bits::EncodeStrWithCheck() const noexcept
+{
+	Encoder24Bits encoder = LoadEncoder24bits();
 
-	return output;
+	return encoder.EncodeStrWithCheck();
 }
 
 // Encoder 32 Bits
@@ -382,54 +382,80 @@ std::string Encoder64Bits::EncodeStr() const noexcept
 	return output;
 }
 
-std::vector<std::uint8_t> EncodeBase64(
+std::vector<char> EncodeBase64(
 	void const* dataHandle, size_t elementCount, size_t primitiveSize
 ) noexcept {
-	const size_t sizeInBytes     = elementCount * primitiveSize;
-	const size_t bitCount        = sizeInBytes * 8u;
-	const size_t bits24Count     = bitCount / 24u;
-	const size_t bits24Remainder = bitCount % 24u;
+	const size_t encodedCharacterCount = (elementCount * primitiveSize + 2u) / 3u * 4u;
 
-	size_t output24BitsCount = bits24Count;
+	std::vector<char> encodedData(encodedCharacterCount, '\0');
 
-	// If the size in bits isn't an exponent of 24, then we need to add padding and make it so.
-	// So, there will be an extra 24bits if there is a remainder.
-	if (bits24Remainder)
-		++output24BitsCount;
-
-	// Each 24bits will be divided into four 6 bits, each represented with a character.
-	const size_t encodedCharCount = output24BitsCount * 4u;
-
-	std::vector<std::uint8_t> encodedData(encodedCharCount, 0u);
-
-	// Not constexpr so can check on the runtime.
-	const bool isLittleEndian = std::endian::native == std::endian::little;
-
-	/*
-	if (isLittleEndian)
+	if (primitiveSize == 1u)
 	{
-		if (primitiveSize == 1u)
-			EncodeBase64<true, 1u>(dataHandle, encodedData, bits24Count, bits24Remainder);
-		else if (primitiveSize == 2u)
-			EncodeBase64<true, 2u>(dataHandle, encodedData, bits24Count, bits24Remainder);
-		else if (primitiveSize == 4u)
-			EncodeBase64<true, 4u>(dataHandle, encodedData, bits24Count, bits24Remainder);
-		else if (primitiveSize == 8u)
-			EncodeBase64<true, 8u>(dataHandle, encodedData, bits24Count, bits24Remainder);
+		auto dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
+
+		size_t eIndex = 0u;
+		size_t cIndex = 0u;
+
+		Encoder24Bits encoder{};
+
+		for (; eIndex + 2u < elementCount; eIndex += 3u)
+		{
+			encoder.LoadData(dataHandleU8 + eIndex, 3u);
+
+			std::array<char, 4u> encoded24Bits = encoder.Encode();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+
+			cIndex += 4u;
+		}
+
+		if (eIndex < elementCount)
+		{
+			encoder.LoadData(dataHandleU8 + eIndex, elementCount - eIndex);
+
+			std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+		}
 	}
-	else
+	else if (primitiveSize == 2u)
 	{
-		if (primitiveSize == 1u)
-			EncodeBase64<false, 1u>(dataHandle, encodedData, bits24Count, bits24Remainder);
-		else if (primitiveSize == 2u)
-			EncodeBase64<false, 2u>(dataHandle, encodedData, bits24Count, bits24Remainder);
-		else if (primitiveSize == 4u)
-			EncodeBase64<false, 4u>(dataHandle, encodedData, bits24Count, bits24Remainder);
-		else if (primitiveSize == 8u)
-			EncodeBase64<false, 8u>(dataHandle, encodedData, bits24Count, bits24Remainder);
+		auto dataHandleU16 = static_cast<std::uint16_t const*>(dataHandle);
+
+		size_t eIndex = 0u;
+		size_t cIndex = 0u;
+
+		Encoder16Bits encoder{};
+
+		for (; eIndex + 1u < elementCount;)
+		{
+			const size_t loadedElement = encoder.LoadData(dataHandleU16 + eIndex, 2u);
+
+			std::array<char, 4u> encoded24Bits = encoder.Encode();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+
+			cIndex += 4u;
+			eIndex += loadedElement;
+		}
+
+		{
+			encoder.LoadData(dataHandleU16 + eIndex, elementCount - eIndex);
+
+			std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+		}
 	}
-	*/
 
 	return encodedData;
+}
+
+std::string EncodeBase64Str(
+	void const* dataHandle, size_t elementCount, size_t primitiveSize
+) noexcept {
+	std::vector<char> encodedData = EncodeBase64(dataHandle, elementCount, primitiveSize);
+
+	return std::string{ std::begin(encodedData), std::end(encodedData) };
 }
 }

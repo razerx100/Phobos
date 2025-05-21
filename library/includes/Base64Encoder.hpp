@@ -68,7 +68,12 @@ public:
 	[[nodiscard]]
 	std::array<char, 4u> Encode() const noexcept;
 	[[nodiscard]]
+	std::array<char, 4u> EncodeWithCheck() const noexcept;
+
+	[[nodiscard]]
 	std::string EncodeStr() const noexcept;
+	[[nodiscard]]
+	std::string EncodeStrWithCheck() const noexcept;
 
 private:
 	[[nodiscard]]
@@ -220,7 +225,12 @@ private:
 };
 
 [[nodiscard]]
-std::vector<std::uint8_t> EncodeBase64(
+std::vector<char> EncodeBase64(
+	void const* dataHandle, size_t elementCount, size_t primitiveSize
+) noexcept;
+
+[[nodiscard]]
+std::string EncodeBase64Str(
 	void const* dataHandle, size_t elementCount, size_t primitiveSize
 ) noexcept;
 }
