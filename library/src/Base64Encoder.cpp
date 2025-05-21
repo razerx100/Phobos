@@ -269,28 +269,28 @@ std::array<char, 4u> Encoder32Bits::Encode() const noexcept
 {
 	Encoder24Bits encoder = LoadEncoder24bits();
 
-	std::array<char, 4u> output{};
+	return encoder.Encode();
+}
 
-	if (encoder.AreAllBytesValid())
-		output = encoder.Encode();
-	else
-		output = encoder.EncodeWithCheck();
+std::array<char, 4u> Encoder32Bits::EncodeWithCheck() const noexcept
+{
+	Encoder24Bits encoder = LoadEncoder24bits();
 
-	return output;
+	return encoder.EncodeWithCheck();
 }
 
 std::string Encoder32Bits::EncodeStr() const noexcept
 {
 	Encoder24Bits encoder = LoadEncoder24bits();
 
-	std::string output{};
+	return encoder.EncodeStr();
+}
 
-	if (encoder.AreAllBytesValid())
-		output = encoder.EncodeStr();
-	else
-		output = encoder.EncodeStrWithCheck();
+std::string Encoder32Bits::EncodeStrWithCheck() const noexcept
+{
+	Encoder24Bits encoder = LoadEncoder24bits();
 
-	return output;
+	return encoder.EncodeStrWithCheck();
 }
 
 // Encoder 64 Bits
@@ -328,26 +328,48 @@ std::array<char, 8u> Encoder64Bits::Encode() const noexcept
 	std::array<char, 8u> output{ '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' };
 
 	{
-		std::array<char, 4u> output1{};
+		std::array<char, 4u> tempOutput{};
 
-		if (encoder1.AreAllBytesValid())
-			output1 = encoder1.Encode();
-		else
-			output1 = encoder1.EncodeWithCheck();
+		tempOutput = encoder1.Encode();
 
-		memcpy(std::data(output), std::data(output1), 4u);
+		memcpy(std::data(output), std::data(tempOutput), 4u);
+	}
+
+	{
+		std::array<char, 4u> tempOutput{};
+
+		tempOutput = encoder2.Encode();
+
+		memcpy(std::data(output) + 4u, std::data(tempOutput), 4u);
+	}
+
+	return output;
+}
+
+std::array<char, 8u> Encoder64Bits::EncodeWithCheck() const noexcept
+{
+	std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+
+	const Encoder24Bits& encoder1 = encoders[0];
+	const Encoder24Bits& encoder2 = encoders[1];
+
+	std::array<char, 8u> output{ '\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0' };
+
+	{
+		std::array<char, 4u> tempOutput{};
+
+		tempOutput = encoder1.EncodeWithCheck();
+
+		memcpy(std::data(output), std::data(tempOutput), 4u);
 	}
 
 	if (m_validByteCount > 3u)
 	{
-		std::array<char, 4u> output2{};
+		std::array<char, 4u> tempOutput{};
 
-		if (encoder2.AreAllBytesValid())
-			output2 = encoder2.Encode();
-		else
-			output2 = encoder2.EncodeWithCheck();
+		tempOutput = encoder2.EncodeWithCheck();
 
-		memcpy(std::data(output) + 4u, std::data(output2), 4u);
+		memcpy(std::data(output) + 4u, std::data(tempOutput), 4u);
 	}
 
 	return output;
@@ -362,20 +384,26 @@ std::string Encoder64Bits::EncodeStr() const noexcept
 
 	std::string output{};
 
-	{
-		if (encoder1.AreAllBytesValid())
-			output += encoder1.EncodeStr();
-		else
-			output += encoder1.EncodeStrWithCheck();
-	}
+	output += encoder1.EncodeStr();
+
+	output += encoder2.EncodeStr();
+
+	return output;
+}
+
+std::string Encoder64Bits::EncodeStrWithCheck() const noexcept
+{
+	std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+
+	const Encoder24Bits& encoder1 = encoders[0];
+	const Encoder24Bits& encoder2 = encoders[1];
+
+	std::string output{};
+
+	output += encoder1.EncodeStrWithCheck();
 
 	if (m_validByteCount > 3u)
-	{
-		if (encoder2.AreAllBytesValid())
-			output += encoder2.EncodeStr();
-		else
-			output += encoder2.EncodeStrWithCheck();
-	}
+		output += encoder2.EncodeStrWithCheck();
 
 	return output;
 }

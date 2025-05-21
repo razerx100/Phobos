@@ -146,7 +146,7 @@ TEST(Base64Test, Load32BitsTest)
 
 		loaded = encoder.LoadData(0u, 0u);
 
-		EXPECT_EQ(encoder.EncodeStr(), "+Q==") << "Wrong encoded string.";
+		EXPECT_EQ(encoder.EncodeStrWithCheck(), "+Q==") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
 
@@ -170,7 +170,7 @@ TEST(Base64Test, Load32BitsTest)
 
 		loaded = encoder.LoadData(0u, 0u);
 
-		EXPECT_EQ(encoder.EncodeStr(), "AAM=") << "Wrong encoded string.";
+		EXPECT_EQ(encoder.EncodeStrWithCheck(), "AAM=") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
 
@@ -214,7 +214,7 @@ TEST(Base64Test, Load32BitsTest)
 
 		loaded = encoder.LoadData(0u, 0u);
 
-		EXPECT_EQ(encoder.EncodeStr(), "AAU=") << "Wrong encoded string.";
+		EXPECT_EQ(encoder.EncodeStrWithCheck(), "AAU=") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
 }
@@ -236,7 +236,7 @@ TEST(Base64Test, Load64BitsTest)
 
 		loaded = encoder.LoadData(0u, 0u);
 
-		EXPECT_EQ(encoder.EncodeStr(), "//k=") << "Wrong encoded string.";
+		EXPECT_EQ(encoder.EncodeStrWithCheck(), "//k=") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
 
@@ -260,7 +260,7 @@ TEST(Base64Test, Load64BitsTest)
 
 		loaded = encoder.LoadData(0u, 0u);
 
-		EXPECT_EQ(encoder.EncodeStr(), "AAAAAw==") << "Wrong encoded string.";
+		EXPECT_EQ(encoder.EncodeStrWithCheck(), "AAAAAw==") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
 
@@ -304,7 +304,7 @@ TEST(Base64Test, Load64BitsTest)
 
 		loaded = encoder.LoadData(0u, 0u);
 
-		EXPECT_EQ(encoder.EncodeStr(), "AAAABQ==") << "Wrong encoded string.";
+		EXPECT_EQ(encoder.EncodeStrWithCheck(), "AAAABQ==") << "Wrong encoded string.";
 		EXPECT_EQ(loaded, false) << "Loaded the new value.";
 	}
 }

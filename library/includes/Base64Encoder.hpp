@@ -202,7 +202,12 @@ public:
 	[[nodiscard]]
 	std::array<char, 4u> Encode() const noexcept;
 	[[nodiscard]]
+	std::array<char, 4u> EncodeWithCheck() const noexcept;
+
+	[[nodiscard]]
 	std::string EncodeStr() const noexcept;
+	[[nodiscard]]
+	std::string EncodeStrWithCheck() const noexcept;
 
 private:
 	[[nodiscard]]
@@ -217,7 +222,12 @@ public:
 	[[nodiscard]]
 	std::array<char, 8u> Encode() const noexcept;
 	[[nodiscard]]
+	std::array<char, 8u> EncodeWithCheck() const noexcept;
+
+	[[nodiscard]]
 	std::string EncodeStr() const noexcept;
+	[[nodiscard]]
+	std::string EncodeStrWithCheck() const noexcept;
 
 private:
 	[[nodiscard]]
