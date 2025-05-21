@@ -16,6 +16,21 @@ static constexpr std::array s_6bitsOffsetMap
 	23u, 17u, 11u, 5u
 };
 
+struct MemcpyDetails
+{
+	std::uint32_t offset1;
+	std::uint32_t size1;
+	std::uint32_t offset2;
+	std::uint32_t size2;
+};
+
+static constexpr std::array s_memcpyDetails
+{
+	MemcpyDetails{ 0u, 0u, 0u, 0u },
+	MemcpyDetails{ 1u, 1u, 0u, 0u },
+	MemcpyDetails{ 1u, 1u, 2u, 1u }
+};
+
 // Encoder 24 bits
 void Encoder24Bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
 {
@@ -23,34 +38,17 @@ void Encoder24Bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
 
 	auto dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
 
-	if (byteCount == 3u)
-	{
-		memcpy(&data, dataHandleU8, 1u);
+	const MemcpyDetails memcpyDetails = s_memcpyDetails[byteCount - 1u];
 
-		data <<= 8u;
+	memcpy(&data, dataHandleU8, 1u);
 
-		memcpy(&data, dataHandleU8 + 1u, 1u);
+	data <<= 8u;
 
-		data <<= 8u;
+	memcpy(&data, dataHandleU8 + memcpyDetails.offset1, memcpyDetails.size1);
 
-		memcpy(&data, dataHandleU8 + 2u, 1u);
-	}
-	else if (byteCount == 1u)
-	{
-		memcpy(&data, dataHandle, 1u);
+	data <<= 8u;
 
-		data <<= 16u;
-	}
-	else if (byteCount == 2u)
-	{
-		memcpy(&data, dataHandleU8, 1u);
-
-		data <<= 8u;
-
-		memcpy(&data, dataHandleU8 + 1u, 1u);
-
-		data <<= 8u;
-	}
+	memcpy(&data, dataHandleU8 + memcpyDetails.offset2, memcpyDetails.size2);
 
 	m_data = data;
 
