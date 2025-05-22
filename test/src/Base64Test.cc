@@ -458,3 +458,60 @@ TEST(Base64Test, EncodeBase64Test3)
 			<< "Wrong encoded string.";
 	}
 }
+
+TEST(Base64Test, EncodeBase64Test4)
+{
+	{
+		std::array<std::uint64_t, 1u> data
+		{
+			0xfffffffff9llu
+		};
+
+		std::string encodedData = EncodeBase64Str(
+			std::data(data), std::size(data), sizeof(decltype(data)::value_type)
+		);
+
+		EXPECT_EQ(encodedData, "AAAA//////k=") << "Wrong encoded string.";
+	}
+
+	{
+		std::array<std::uint64_t, 2u> data
+		{
+			2u, 3u
+		};
+
+		std::string encodedData = EncodeBase64Str(
+			std::data(data), std::size(data), sizeof(decltype(data)::value_type)
+		);
+
+		EXPECT_EQ(encodedData, "AAAAAAAAAAIAAAAAAAAAAw==") << "Wrong encoded string.";
+	}
+
+	{
+		std::array<std::uint64_t, 3u> data
+		{
+			2u, 3u, 7u
+		};
+
+		std::string encodedData = EncodeBase64Str(
+			std::data(data), std::size(data), sizeof(decltype(data)::value_type)
+		);
+
+		EXPECT_EQ(encodedData, "AAAAAAAAAAIAAAAAAAAAAwAAAAAAAAAH") << "Wrong encoded string.";
+	}
+
+	{
+		std::array<std::uint64_t, 9u> data
+		{
+			9u, 7u, 5u, 3u, 1u, 6u, 2u, 4u, 8u
+		};
+
+		std::string encodedData = EncodeBase64Str(
+			std::data(data), std::size(data), sizeof(decltype(data)::value_type)
+		);
+
+		EXPECT_EQ(encodedData,
+			"AAAAAAAAAAkAAAAAAAAABwAAAAAAAAAFAAAAAAAAAAMAAAAAAAAAAQAAAAAAAAAGAAAAAAAAAAIAAAAAAAAABAAAAAAAAAAI"
+		) << "Wrong encoded string.";
+	}
+}
