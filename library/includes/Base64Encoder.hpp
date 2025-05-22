@@ -229,6 +229,9 @@ public:
 	[[nodiscard]]
 	std::string EncodeStrWithCheck() const noexcept;
 
+	[[nodiscard]]
+	bool AreLast4CharactersValid() const noexcept { return m_validByteCount > 3u; }
+
 private:
 	[[nodiscard]]
 	std::array<Encoder24Bits, 2u> LoadEncoder24bits() const noexcept;

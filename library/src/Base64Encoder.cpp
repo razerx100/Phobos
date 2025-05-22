@@ -363,7 +363,7 @@ std::array<char, 8u> Encoder64Bits::EncodeWithCheck() const noexcept
 		memcpy(std::data(output), std::data(tempOutput), 4u);
 	}
 
-	if (m_validByteCount > 3u)
+	if (AreLast4CharactersValid())
 	{
 		std::array<char, 4u> tempOutput{};
 
@@ -402,7 +402,7 @@ std::string Encoder64Bits::EncodeStrWithCheck() const noexcept
 
 	output += encoder1.EncodeStrWithCheck();
 
-	if (m_validByteCount > 3u)
+	if (AreLast4CharactersValid())
 		output += encoder2.EncodeStrWithCheck();
 
 	return output;
@@ -471,6 +471,71 @@ std::vector<char> EncodeBase64(
 			std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
 
 			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+		}
+	}
+	else if (primitiveSize == 4u)
+	{
+		auto dataHandleU32 = static_cast<std::uint32_t const*>(dataHandle);
+
+		size_t eIndex = 0u;
+		size_t cIndex = 0u;
+
+		Encoder32Bits encoder{};
+
+		for (; eIndex < elementCount;)
+		{
+			const bool isLoaded = encoder.LoadData(dataHandleU32[eIndex]);
+
+			std::array<char, 4u> encoded24Bits = encoder.Encode();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+
+			cIndex += 4u;
+
+			if (isLoaded)
+				++eIndex;
+		}
+
+		{
+			encoder.LoadData(0u, 0u);
+
+			std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+		}
+	}
+	else if (primitiveSize == 8u)
+	{
+		auto dataHandleU64 = static_cast<std::uint64_t const*>(dataHandle);
+
+		size_t eIndex = 0u;
+		size_t cIndex = 0u;
+
+		Encoder64Bits encoder{};
+
+		for (; eIndex < elementCount;)
+		{
+			const bool isLoaded = encoder.LoadData(dataHandleU64[eIndex]);
+
+			std::array<char, 8u> encoded24Bits = encoder.Encode();
+
+			memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 8u);
+
+			cIndex += 8u;
+
+			if (isLoaded)
+				++eIndex;
+		}
+
+		{
+			encoder.LoadData(0u, 0u);
+
+			std::array<char, 8u> encoded24Bits = encoder.EncodeWithCheck();
+
+			memcpy(
+				std::data(encodedData) + cIndex, std::data(encoded24Bits),
+				encoder.AreLast4CharactersValid() ? 8u : 4u
+			);
 		}
 	}
 
