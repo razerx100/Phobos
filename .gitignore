@@ -1,7 +1,10 @@
 .vs
+.vscode
+.cache
 Solution
 out
 build
+compile_commands.json
 *.lib
 /CMakeSettings.json
 /CMakePresets.json

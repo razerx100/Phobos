@@ -33,3 +33,9 @@ target_link_libraries(PhobosTest PRIVATE PhobosLib GTest::gtest_main)
 include(GoogleTest)
 
 gtest_discover_tests(PhobosTest)
+
+add_custom_command(TARGET PhobosTest POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    "${CMAKE_BINARY_DIR}/compile_commands.json"
+    "${CMAKE_SOURCE_DIR}/compile_commands.json"
+)
