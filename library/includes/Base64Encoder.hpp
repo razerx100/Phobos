@@ -22,24 +22,33 @@ public:
   // only loads 24bits/3 bytes.
   void LoadData(void const *dataHandle, size_t byteCount);
 
-  [[nodiscard]] bool IsByteValid(size_t index) const noexcept;
-  [[nodiscard]] bool AreAllBytesValid() const noexcept;
+  [[nodiscard]]
+  bool IsByteValid(size_t index) const noexcept;
+  [[nodiscard]]
+  bool AreAllBytesValid() const noexcept;
 
-  [[nodiscard]] std::array<char, charCountBase64> Encode() const noexcept;
-  [[nodiscard]] std::array<char, charCountBase64>
-  EncodeWithCheck() const noexcept;
-  [[nodiscard]] std::string EncodeStr() const noexcept;
-  [[nodiscard]] std::string EncodeStrWithCheck() const noexcept;
+  [[nodiscard]]
+  std::array<char, charCountBase64> Encode() const noexcept;
+  [[nodiscard]]
+  std::array<char, charCountBase64> EncodeWithCheck() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStr() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStrWithCheck() const noexcept;
 
-  [[nodiscard]] const std::bitset<bitCount> &GetData() const noexcept {
+  [[nodiscard]]
+  const std::bitset<bitCount> &GetData() const noexcept {
     return m_data;
   }
 
 private:
-  [[nodiscard]] char Encode6bits_(size_t index) const noexcept;
-  [[nodiscard]] char Encode6bitsWithCheck_(size_t index) const noexcept;
+  [[nodiscard]]
+  char Encode6bits_(size_t index) const noexcept;
+  [[nodiscard]]
+  char Encode6bitsWithCheck_(size_t index) const noexcept;
 
-  [[nodiscard]] size_t Get6BitValue_(size_t index) const noexcept;
+  [[nodiscard]]
+  size_t Get6BitValue_(size_t index) const noexcept;
 
 private:
   std::bitset<bitCount> m_data;
@@ -54,15 +63,19 @@ public:
   // loaded.
   size_t LoadData(void const *dataHandle, size_t elementCount) noexcept;
 
-  [[nodiscard]] std::array<char, charCountBase64> Encode() const noexcept;
-  [[nodiscard]] std::array<char, charCountBase64>
-  EncodeWithCheck() const noexcept;
+  [[nodiscard]]
+  std::array<char, charCountBase64> Encode() const noexcept;
+  [[nodiscard]]
+  std::array<char, charCountBase64> EncodeWithCheck() const noexcept;
 
-  [[nodiscard]] std::string EncodeStr() const noexcept;
-  [[nodiscard]] std::string EncodeStrWithCheck() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStr() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStrWithCheck() const noexcept;
 
 private:
-  [[nodiscard]] Encoder24Bits LoadEncoder24bits() const noexcept;
+  [[nodiscard]]
+  Encoder24Bits LoadEncoder24bits() const noexcept;
 
 private:
   std::uint16_t m_first{0U};
@@ -172,41 +185,51 @@ class Encoder32Bits : public Encoder24PlusBits<std::uint32_t> {
 public:
   Encoder32Bits() : Encoder24PlusBits{} {}
 
-  [[nodiscard]] std::array<char, 4u> Encode() const noexcept;
-  [[nodiscard]] std::array<char, 4u> EncodeWithCheck() const noexcept;
+  [[nodiscard]]
+  std::array<char, 4u> Encode() const noexcept;
+  [[nodiscard]]
+  std::array<char, 4u> EncodeWithCheck() const noexcept;
 
-  [[nodiscard]] std::string EncodeStr() const noexcept;
-  [[nodiscard]] std::string EncodeStrWithCheck() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStr() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStrWithCheck() const noexcept;
 
 private:
-  [[nodiscard]] Encoder24Bits LoadEncoder24bits() const noexcept;
+  [[nodiscard]]
+  Encoder24Bits LoadEncoder24bits() const noexcept;
 };
 
 class Encoder64Bits : public Encoder24PlusBits<std::uint64_t> {
 public:
   Encoder64Bits() : Encoder24PlusBits{} {}
 
-  [[nodiscard]] std::array<char, 8u> Encode() const noexcept;
-  [[nodiscard]] std::array<char, 8u> EncodeWithCheck() const noexcept;
+  [[nodiscard]]
+  std::array<char, 8u> Encode() const noexcept;
+  [[nodiscard]]
+  std::array<char, 8u> EncodeWithCheck() const noexcept;
 
-  [[nodiscard]] std::string EncodeStr() const noexcept;
-  [[nodiscard]] std::string EncodeStrWithCheck() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStr() const noexcept;
+  [[nodiscard]]
+  std::string EncodeStrWithCheck() const noexcept;
 
-  [[nodiscard]] bool AreLast4CharactersValid() const noexcept {
+  [[nodiscard]]
+  bool AreLast4CharactersValid() const noexcept {
     return m_validByteCount > 3u;
   }
 
 private:
-  [[nodiscard]] std::array<Encoder24Bits, 2u>
-  LoadEncoder24bits() const noexcept;
+  [[nodiscard]]
+  std::array<Encoder24Bits, 2u> LoadEncoder24bits() const noexcept;
 };
 
-[[nodiscard]] std::vector<char> EncodeBase64(void const *dataHandle,
-                                             size_t elementCount,
-                                             size_t primitiveSize) noexcept;
+[[nodiscard]]
+std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
+                               size_t primitiveSize) noexcept;
 
-[[nodiscard]] std::string EncodeBase64Str(void const *dataHandle,
-                                          size_t elementCount,
-                                          size_t primitiveSize) noexcept;
+[[nodiscard]]
+std::string EncodeBase64Str(void const *dataHandle, size_t elementCount,
+                            size_t primitiveSize) noexcept;
 } // namespace Phobos
 #endif
