@@ -1,6 +1,5 @@
 #include <gtest/gtest.h>
 
-#include <limits>
 #include <Base64Encoder.hpp>
 #include <array>
 

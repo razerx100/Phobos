@@ -1,4 +1,5 @@
 #include <Base64Encoder.hpp>
+#include <cstdint>
 
 namespace Phobos
 {
@@ -13,7 +14,7 @@ static constexpr std::array s_characterMap
 
 static constexpr std::array s_6bitsOffsetMap
 {
-	23u, 17u, 11u, 5u
+	23, 17, 11, 5
 };
 
 struct MemcpyDetails
@@ -26,28 +27,30 @@ struct MemcpyDetails
 
 static constexpr std::array s_memcpyDetails
 {
-	MemcpyDetails{ 0u, 0u, 0u, 0u },
-	MemcpyDetails{ 1u, 1u, 0u, 0u },
-	MemcpyDetails{ 1u, 1u, 2u, 1u }
+	MemcpyDetails{ .offset1 = 0U, .size1 = 0U, .offset2 = 0U, .size2 = 0U },
+	MemcpyDetails{ .offset1 = 1U, .size1 = 1U, .offset2 = 0U, .size2 = 0U },
+	MemcpyDetails{ .offset1 = 1U, .size1 = 1U, .offset2 = 2U, .size2 = 1U }
 };
 
 // Encoder 24 bits
-void Encoder24Bits::LoadData(void const* dataHandle, size_t byteCount) noexcept
+void Encoder24Bits::LoadData(void const* dataHandle, size_t byteCount)
 {
-	std::uint32_t data = 0u;
+	std::uint32_t data = 0U;
 
-	auto dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
+	const auto* dataHandleU8 = static_cast<std::uint8_t const*>(dataHandle);
 
-	const MemcpyDetails memcpyDetails = s_memcpyDetails[byteCount - 1u];
+	const MemcpyDetails memcpyDetails = s_memcpyDetails.at(byteCount - 1U);
 
-	memcpy(&data, dataHandleU8, 1u);
+	memcpy(&data, dataHandleU8, 1U);
 
-	data <<= 8u;
+	data <<= bitsInByte;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 	memcpy(&data, dataHandleU8 + memcpyDetails.offset1, memcpyDetails.size1);
 
-	data <<= 8u;
+	data <<= bitsInByte;
 
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 	memcpy(&data, dataHandleU8 + memcpyDetails.offset2, memcpyDetails.size2);
 
 	m_data = data;
@@ -62,20 +65,23 @@ bool Encoder24Bits::IsByteValid(size_t index) const noexcept
 
 bool Encoder24Bits::AreAllBytesValid() const noexcept
 {
-	return m_validByteCount == 3u;
+	return m_validByteCount == 3U;
 }
 
-size_t Encoder24Bits::Get6BitValue(size_t index) const noexcept
+size_t Encoder24Bits::Get6BitValue_(size_t index) const noexcept
 {
-	auto bitOffset = static_cast<std::int64_t>(s_6bitsOffsetMap[index]);
+    constexpr std::int64_t bitCount = 6;
 
-	std::int64_t endBit = bitOffset - 6;
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index) Ok, private method.
+	std::int64_t bitOffset = s_6bitsOffsetMap[index];
 
-	size_t outputValue = 0u;
+	const std::int64_t endBit = bitOffset - bitCount;
+
+	size_t outputValue = 0U;
 
 	for (; bitOffset > endBit; --bitOffset)
 	{
-		outputValue <<= 1u;
+		outputValue <<= 1U;
 
 		outputValue |= static_cast<size_t>(m_data.test(bitOffset));
 	}
@@ -83,42 +89,52 @@ size_t Encoder24Bits::Get6BitValue(size_t index) const noexcept
 	return outputValue;
 }
 
-char Encoder24Bits::Encode6bits(size_t index) const noexcept
+char Encoder24Bits::Encode6bits_(size_t index) const noexcept
 {
-	return s_characterMap[Get6BitValue(index)];
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index) Ok, private method.
+	return s_characterMap[Get6BitValue_(index)];
 }
 
-char Encoder24Bits::Encode6bitsWithCheck(size_t index) const noexcept
+char Encoder24Bits::Encode6bitsWithCheck_(size_t index) const noexcept
 {
 	char encodedChar = '=';
 
-	const size_t byteIndex = index ? index - 1u : 0u;
+    // The parameter index is the index of the 6bit segments in the 24bits.
+    // We store the data in the multiples of 8bits.
+    // Assuming 1 byte is 8bits (usually is).
+    // If 3 bytes are stored 8 x 3 = 24 = 6 x 4. 4 full 6bits, so, 0-3 indices are valid .
+    // If 2 bytes are stored 8 x 2 = 16 = 6 x 2 + 4, 2 full 6bits and 4bits, 2 empty bits will be added to the end and so, 0-2 indices are valid.
+    // If 1 byte is stored 8 x 1 = 8 = 6 x 1 + 2, 1 full 6bits and 2bits, 4 empty bits will be added to the end and so, 0-1 indices are valid.
+    // Invalid 6bits are represented with = according to the standard.
+	const size_t byteIndex = index > 0 ? index - 1U : 0U;
 
 	if (IsByteValid(byteIndex))
-		encodedChar = Encode6bits(index);
+    {
+		encodedChar = Encode6bits_(index);
+    }
 
 	return encodedChar;
 }
 
-std::array<char, 4u> Encoder24Bits::Encode() const noexcept
+std::array<char, charCountBase64> Encoder24Bits::Encode() const noexcept
 {
 	return
 	{
-		Encode6bits(0u),
-		Encode6bits(1u),
-		Encode6bits(2u),
-		Encode6bits(3u)
+		Encode6bits_(0U),
+		Encode6bits_(1U),
+		Encode6bits_(2U),
+		Encode6bits_(3U)
 	};
 }
 
-std::array<char, 4u> Encoder24Bits::EncodeWithCheck() const noexcept
+std::array<char, charCountBase64> Encoder24Bits::EncodeWithCheck() const noexcept
 {
 	return
 	{
-		Encode6bitsWithCheck(0u),
-		Encode6bitsWithCheck(1u),
-		Encode6bitsWithCheck(2u),
-		Encode6bitsWithCheck(3u)
+		Encode6bitsWithCheck_(0U),
+		Encode6bitsWithCheck_(1U),
+		Encode6bitsWithCheck_(2U),
+		Encode6bitsWithCheck_(3U)
 	};
 }
 
@@ -126,10 +142,10 @@ std::string Encoder24Bits::EncodeStr() const noexcept
 {
 	return std::string
 	{
-		Encode6bits(0u),
-		Encode6bits(1u),
-		Encode6bits(2u),
-		Encode6bits(3u)
+		Encode6bits_(0U),
+		Encode6bits_(1U),
+		Encode6bits_(2U),
+		Encode6bits_(3U)
 	};
 }
 
@@ -137,10 +153,10 @@ std::string Encoder24Bits::EncodeStrWithCheck() const noexcept
 {
 	return std::string
 	{
-		Encode6bitsWithCheck(0u),
-		Encode6bitsWithCheck(1u),
-		Encode6bitsWithCheck(2u),
-		Encode6bitsWithCheck(3u)
+		Encode6bitsWithCheck_(0U),
+		Encode6bitsWithCheck_(1U),
+		Encode6bitsWithCheck_(2U),
+		Encode6bitsWithCheck_(3U)
 	};
 }
 

@@ -1,26 +1,28 @@
 #ifndef BASE_64_ENCODER_HPP_
 #define BASE_64_ENCODER_HPP_
+#include <cstddef>
 #include <cstdint>
-#include <cmath>
 #include <bit>
 #include <bitset>
 #include <array>
 #include <vector>
 #include <string>
-#include <concepts>
 #include <type_traits>
 
 namespace Phobos
 {
+inline constexpr size_t bitsInByte = 8U;
+inline constexpr size_t charCountBase64 = 4U; // 6bits per char.
+
 class Encoder24Bits
 {
 public:
-	Encoder24Bits() : m_data{ 0u }, m_validByteCount{ 0u } {}
+    static constexpr size_t bitCount = 24U;
 
 	// Won't account for endianness. So, for any primitive larger than a byte,
 	// the correct bit sized encoder should be used instead. Also
 	// only loads 24bits/3 bytes.
-	void LoadData(void const* dataHandle, size_t byteCount) noexcept;
+	void LoadData(void const* dataHandle, size_t byteCount);
 
 	[[nodiscard]]
 	bool IsByteValid(size_t index) const noexcept;
@@ -28,29 +30,29 @@ public:
 	bool AreAllBytesValid() const noexcept;
 
 	[[nodiscard]]
-	char Encode6bits(size_t index) const noexcept;
+	std::array<char, charCountBase64> Encode() const noexcept;
 	[[nodiscard]]
-	char Encode6bitsWithCheck(size_t index) const noexcept;
-
-	[[nodiscard]]
-	std::array<char, 4u> Encode() const noexcept;
-	[[nodiscard]]
-	std::array<char, 4u> EncodeWithCheck() const noexcept;
+	std::array<char, charCountBase64> EncodeWithCheck() const noexcept;
 	[[nodiscard]]
 	std::string EncodeStr() const noexcept;
 	[[nodiscard]]
 	std::string EncodeStrWithCheck() const noexcept;
 
 	[[nodiscard]]
-	std::bitset<24u> GetData() const noexcept { return m_data; }
+	const std::bitset<bitCount>& GetData() const noexcept { return m_data; }
 
 private:
 	[[nodiscard]]
-	size_t Get6BitValue(size_t index) const noexcept;
+	char Encode6bits_(size_t index) const noexcept;
+	[[nodiscard]]
+	char Encode6bitsWithCheck_(size_t index) const noexcept;
+
+	[[nodiscard]]
+	size_t Get6BitValue_(size_t index) const noexcept;
 
 private:
-	std::bitset<24u> m_data;
-	std::uint32_t    m_validByteCount;
+	std::bitset<bitCount> m_data;
+	std::uint32_t m_validByteCount{};
 };
 
 class Encoder16Bits
