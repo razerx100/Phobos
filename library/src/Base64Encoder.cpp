@@ -3,11 +3,11 @@
 
 namespace Phobos {
 static constexpr std::array s_characterMap{
-    'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
-    'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
-    'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
-    'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
-    '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
+  'A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M',
+  'N', 'O', 'P', 'Q', 'R', 'S', 'T', 'U', 'V', 'W', 'X', 'Y', 'Z',
+  'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm',
+  'n', 'o', 'p', 'q', 'r', 's', 't', 'u', 'v', 'w', 'x', 'y', 'z',
+  '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
 static constexpr std::array s_6bitsOffsetMap{23, 17, 11, 5};
 
@@ -19,9 +19,9 @@ struct MemcpyDetails {
 };
 
 static constexpr std::array s_memcpyDetails{
-    MemcpyDetails{.offset1 = 0U, .size1 = 0U, .offset2 = 0U, .size2 = 0U},
-    MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 0U, .size2 = 0U},
-    MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 2U, .size2 = 1U}};
+  MemcpyDetails{.offset1 = 0U, .size1 = 0U, .offset2 = 0U, .size2 = 0U},
+  MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 0U, .size2 = 0U},
+  MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 2U, .size2 = 1U}};
 
 // Encoder 24 bits
 void Encoder24Bits::LoadData(void const *dataHandle, size_t byteCount) {
@@ -53,11 +53,11 @@ bool Encoder24Bits::IsByteValid(size_t index) const noexcept {
 }
 
 bool Encoder24Bits::AreAllBytesValid() const noexcept {
-  return m_validByteCount == 3U;
+  return m_validByteCount == byteCountBase64;
 }
 
 size_t Encoder24Bits::Get6BitValue_(size_t index) const noexcept {
-  constexpr std::int64_t bitCount = 6;
+  constexpr auto bitCount = static_cast<std::int64_t>(bitCountCharBase64);
 
   // Ok, private method.
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -94,7 +94,7 @@ char Encoder24Bits::Encode6bitsWithCheck_(size_t index) const noexcept {
   // If 1 byte is stored 8 x 1 = 8 = 6 x 1 + 2, 1 full 6bits and 2bits, 4 empty
   // bits will be added to the end and so, 0-1 indices are valid. Invalid 6bits
   // are represented with = according to the standard.
-  const size_t byteIndex = index > 0 ? index - 1U : 0U;
+  const size_t byteIndex = index > 0U ? index - 1U : 0U;
 
   if (IsByteValid(byteIndex)) {
     encodedChar = Encode6bits_(index);
@@ -225,22 +225,14 @@ std::string Encoder16Bits::EncodeStrWithCheck() const noexcept {
 }
 
 // Encoder 32 Bits
-Encoder24Bits Encoder32Bits::LoadEncoder24bits() const noexcept {
-  Encoder24Bits encoder{};
-
-  encoder.LoadData(&m_storedValue,
-                   std::min(static_cast<std::uint32_t>(m_validByteCount), 3u));
-
-  return encoder;
-}
-
-std::array<char, 4u> Encoder32Bits::Encode() const noexcept {
+std::array<char, charCountBase64> Encoder32Bits::Encode() const noexcept {
   Encoder24Bits encoder = LoadEncoder24bits();
 
   return encoder.Encode();
 }
 
-std::array<char, 4u> Encoder32Bits::EncodeWithCheck() const noexcept {
+std::array<char, charCountBase64>
+Encoder32Bits::EncodeWithCheck() const noexcept {
   Encoder24Bits encoder = LoadEncoder24bits();
 
   return encoder.EncodeWithCheck();
@@ -259,84 +251,89 @@ std::string Encoder32Bits::EncodeStrWithCheck() const noexcept {
 }
 
 // Encoder 64 Bits
-std::array<Encoder24Bits, 2u>
-Encoder64Bits::LoadEncoder24bits() const noexcept {
-  std::array<Encoder24Bits, 2u> encoders{};
+std::array<Encoder24Bits, Encoder64Bits::unitCount>
+Encoder64Bits::LoadEncoder48bits() const noexcept {
+  std::array<Encoder24Bits, unitCount> encoders{LoadEncoder24bits()};
 
-  Encoder24Bits &encoder1 = encoders[0];
-  Encoder24Bits &encoder2 = encoders[1];
+  if (m_validByteCount > byteCountBase64) {
+    Encoder24Bits &encoder2 = encoders[1];
 
-  encoder1.LoadData(&m_storedValue,
-                    std::min(static_cast<std::uint32_t>(m_validByteCount), 3u));
-
-  if (m_validByteCount > 3u) {
     const auto validByteCount =
-        static_cast<std::uint32_t>(m_validByteCount) - 3u;
+      static_cast<size_t>(m_validByteCount) - byteCountBase64;
 
+    // NOLINTNEXTLINE(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
     encoder2.LoadData(reinterpret_cast<std::uint8_t const *>(&m_storedValue) +
-                          3u,
-                      std::min(validByteCount, 3u));
+                        byteCountBase64,
+                      std::min(validByteCount, byteCountBase64));
   }
 
   return encoders;
 }
 
-std::array<char, 8u> Encoder64Bits::Encode() const noexcept {
-  std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+std::array<char, Encoder64Bits::charCount>
+Encoder64Bits::Encode() const noexcept {
+  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
 
   const Encoder24Bits &encoder1 = encoders[0];
   const Encoder24Bits &encoder2 = encoders[1];
 
-  std::array<char, 8u> output{'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
+  std::array<char, charCount> output{'\0', '\0', '\0', '\0',
+                                     '\0', '\0', '\0', '\0'};
 
   {
-    std::array<char, 4u> tempOutput{};
+    std::array<char, charCountBase64> tempOutput{};
 
     tempOutput = encoder1.Encode();
 
-    memcpy(std::data(output), std::data(tempOutput), 4u);
+    memcpy(std::data(output), std::data(tempOutput), charCountBase64);
   }
 
   {
-    std::array<char, 4u> tempOutput{};
+    std::array<char, charCountBase64> tempOutput{};
 
     tempOutput = encoder2.Encode();
 
-    memcpy(std::data(output) + 4u, std::data(tempOutput), 4u);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    memcpy(std::data(output) + charCountBase64, std::data(tempOutput),
+           charCountBase64);
   }
 
   return output;
 }
 
-std::array<char, 8u> Encoder64Bits::EncodeWithCheck() const noexcept {
-  std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+std::array<char, Encoder64Bits::charCount>
+Encoder64Bits::EncodeWithCheck() const noexcept {
+  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
 
   const Encoder24Bits &encoder1 = encoders[0];
   const Encoder24Bits &encoder2 = encoders[1];
 
-  std::array<char, 8u> output{'\0', '\0', '\0', '\0', '\0', '\0', '\0', '\0'};
+  std::array<char, charCount> output{'\0', '\0', '\0', '\0',
+                                     '\0', '\0', '\0', '\0'};
 
   {
-    std::array<char, 4u> tempOutput{};
+    std::array<char, charCountBase64> tempOutput{};
 
     tempOutput = encoder1.EncodeWithCheck();
 
-    memcpy(std::data(output), std::data(tempOutput), 4u);
+    memcpy(std::data(output), std::data(tempOutput), charCountBase64);
   }
 
   if (AreLast4CharactersValid()) {
-    std::array<char, 4u> tempOutput{};
+    std::array<char, charCountBase64> tempOutput{};
 
     tempOutput = encoder2.EncodeWithCheck();
 
-    memcpy(std::data(output) + 4u, std::data(tempOutput), 4u);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    memcpy(std::data(output) + charCountBase64, std::data(tempOutput),
+           charCountBase64);
   }
 
   return output;
 }
 
 std::string Encoder64Bits::EncodeStr() const noexcept {
-  std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
 
   const Encoder24Bits &encoder1 = encoders[0];
   const Encoder24Bits &encoder2 = encoders[1];
@@ -351,7 +348,7 @@ std::string Encoder64Bits::EncodeStr() const noexcept {
 }
 
 std::string Encoder64Bits::EncodeStrWithCheck() const noexcept {
-  std::array<Encoder24Bits, 2u> encoders = LoadEncoder24bits();
+  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
 
   const Encoder24Bits &encoder1 = encoders[0];
   const Encoder24Bits &encoder2 = encoders[1];
@@ -360,8 +357,9 @@ std::string Encoder64Bits::EncodeStrWithCheck() const noexcept {
 
   output += encoder1.EncodeStrWithCheck();
 
-  if (AreLast4CharactersValid())
+  if (AreLast4CharactersValid()) {
     output += encoder2.EncodeStrWithCheck();
+  }
 
   return output;
 }
@@ -369,7 +367,7 @@ std::string Encoder64Bits::EncodeStrWithCheck() const noexcept {
 std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
                                size_t primitiveSize) noexcept {
   const size_t encodedCharacterCount =
-      (elementCount * primitiveSize + 2u) / 3u * 4u;
+    (elementCount * primitiveSize + 2u) / 3u * 4u;
 
   std::vector<char> encodedData(encodedCharacterCount, '\0');
 
@@ -489,7 +487,7 @@ std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
 std::string EncodeBase64Str(void const *dataHandle, size_t elementCount,
                             size_t primitiveSize) noexcept {
   std::vector<char> encodedData =
-      EncodeBase64(dataHandle, elementCount, primitiveSize);
+    EncodeBase64(dataHandle, elementCount, primitiveSize);
 
   return std::string{std::begin(encodedData), std::end(encodedData)};
 }

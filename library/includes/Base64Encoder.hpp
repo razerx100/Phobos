@@ -11,12 +11,13 @@
 
 namespace Phobos {
 inline constexpr size_t bitsInByte = 8U;
-inline constexpr size_t charCountBase64 = 4U; // 6bits per char.
+inline constexpr size_t charCountBase64 = 4U;
+inline constexpr size_t bitCountCharBase64 = 6U;
+inline constexpr size_t bitCountBase64 = 24U; // 6 x 4 = 24bits.
+inline constexpr size_t byteCountBase64 = 3U;
 
 class Encoder24Bits {
 public:
-  static constexpr size_t bitCount = 24U;
-
   // Won't account for endianness. So, for any primitive larger than a byte,
   // the correct bit sized encoder should be used instead. Also
   // only loads 24bits/3 bytes.
@@ -37,7 +38,7 @@ public:
   std::string EncodeStrWithCheck() const noexcept;
 
   [[nodiscard]]
-  const std::bitset<bitCount> &GetData() const noexcept {
+  const std::bitset<bitCountBase64> &GetData() const noexcept {
     return m_data;
   }
 
@@ -51,7 +52,7 @@ private:
   size_t Get6BitValue_(size_t index) const noexcept;
 
 private:
-  std::bitset<bitCount> m_data;
+  std::bitset<bitCountBase64> m_data;
   std::uint32_t m_validByteCount{};
 };
 
@@ -85,93 +86,104 @@ private:
 };
 
 template <typename T>
-concept Plus24Bits_t =
-    requires(T) { std::is_integral_v<T> && sizeof(T) * 8u > 24u; };
+concept Plus24Bits_t = requires(T) {
+  std::is_integral_v<T> && sizeof(T) * bitsInByte > bitCountBase64;
+};
 
 template <Plus24Bits_t Integral_t>
 class Encoder24PlusBits {
 public:
-  Encoder24PlusBits()
-      : m_storedValue{0u}, m_remainingBytes{0u}, m_remainingByteCount{0u},
-        m_validByteCount{0u} {}
-
-  // Since there are more than 24 bits, there will always be extra bits. And at
-  // some point that extra bit count will reach the Integral's bit limit and
+  // Some point the extra bit count will reach the Integral's bit limit and
   // then the function will load the extra bits fully instead of the argument
   // and return false. We need a way to load the last remaining bits, in such
   // case the element count should be 0u. Element count which is more than 1
   // would also be treated as 1, as we can't pass more than 1 element.
-  bool LoadData(Integral_t currentValue, size_t elementCount = 1u) noexcept {
+  bool LoadData(Integral_t currentValue, size_t elementCount = 1U) noexcept {
     constexpr size_t integralByteCount = sizeof(Integral_t);
 
     constexpr bool isLittleEndian = std::endian::native == std::endian::little;
 
-    if constexpr (isLittleEndian)
+    if constexpr (isLittleEndian) {
       currentValue = std::byteswap(currentValue);
+    }
 
     // Load the remaining bits first.
-    {
-      m_storedValue = m_remainingBytes;
+    m_storedValue = m_remainingBytes;
 
-      m_validByteCount = m_remainingByteCount;
-    }
+    m_validByteCount = m_remainingByteCount;
 
     bool isNewValueLoaded = false;
 
     // Load the extra bits into stored-value.
-    if (elementCount) {
+    if (elementCount > 0U) {
       const size_t extraBytesToLoad = integralByteCount - m_remainingByteCount;
 
       Integral_t tempStoredValue{m_storedValue};
       Integral_t tempCurrentValue{currentValue};
 
+      // NOLINTNEXTLINE(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
       memcpy(reinterpret_cast<std::uint8_t *>(&tempStoredValue) +
-                 m_remainingByteCount,
+               m_remainingByteCount,
+             // NOLINTNEXTLINE(*-type-reinterpret-cast)
              reinterpret_cast<std::uint8_t *>(&tempCurrentValue),
              extraBytesToLoad);
 
       m_storedValue = tempStoredValue;
     }
 
-    if (m_remainingByteCount == integralByteCount || !elementCount) {
-      m_remainingByteCount = 0u;
+    if (m_remainingByteCount == integralByteCount || elementCount == 0U) {
+      m_remainingByteCount = 0U;
 
       // If the remaining Byte count and the integral byte count are same,
       // then we will have to load the extra bytes from the old remaining bytes.
       // It is not needed for when the element count is zero, but should be
       // fine as we won't load the value if the element count is zero.
       currentValue = m_remainingBytes;
-    } else
+    } else {
       isNewValueLoaded = true;
+    }
 
-    constexpr size_t remainingByteCountPerIntegral = integralByteCount % 3u;
+    constexpr size_t remainingByteCountPerIntegral = integralByteCount % 3U;
 
     // We don't want to add any extra remaining bytes if the element count is
     // zero. Element count more than 1 would be invalid.
     m_remainingByteCount +=
-        static_cast<std::uint8_t>(elementCount * remainingByteCountPerIntegral);
+      static_cast<std::uint8_t>(elementCount * remainingByteCountPerIntegral);
 
     // We also won't be loading any extra valid bytes if the element count is
     // zero.
     const size_t newlyLoadedValidByteCount =
-        elementCount * integralByteCount - m_remainingByteCount;
+      // NOLINTNEXTLINE (readability-math-missing-parentheses)
+      elementCount * integralByteCount - m_remainingByteCount;
 
     // Load the extra bits into remaining-bytes.
-    {
-      Integral_t tempRemainingValue{0u};
-      Integral_t tempCurrentValue{currentValue};
+    Integral_t tempRemainingValue{0U};
+    Integral_t tempCurrentValue{currentValue};
 
-      memcpy(reinterpret_cast<std::uint8_t *>(&tempRemainingValue),
-             reinterpret_cast<std::uint8_t *>(&tempCurrentValue) +
-                 newlyLoadedValidByteCount,
-             m_remainingByteCount);
+    // NOLINTBEGIN(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
+    memcpy(reinterpret_cast<std::uint8_t *>(&tempRemainingValue),
+           reinterpret_cast<std::uint8_t *>(&tempCurrentValue) +
+             newlyLoadedValidByteCount,
+           m_remainingByteCount);
+    // NOLINTEND(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
 
-      m_remainingBytes = tempRemainingValue;
-    }
+    m_remainingBytes = tempRemainingValue;
 
     m_validByteCount += static_cast<std::uint8_t>(newlyLoadedValidByteCount);
 
     return isNewValueLoaded;
+  }
+
+protected:
+  [[nodiscard]]
+  Encoder24Bits LoadEncoder24bits() const noexcept {
+    Encoder24Bits encoder{};
+
+    encoder.LoadData(
+      &m_storedValue,
+      std::min(static_cast<size_t>(m_validByteCount), byteCountBase64));
+
+    return encoder;
   }
 
 protected:
@@ -183,31 +195,26 @@ protected:
 
 class Encoder32Bits : public Encoder24PlusBits<std::uint32_t> {
 public:
-  Encoder32Bits() : Encoder24PlusBits{} {}
-
   [[nodiscard]]
-  std::array<char, 4u> Encode() const noexcept;
+  std::array<char, charCountBase64> Encode() const noexcept;
   [[nodiscard]]
-  std::array<char, 4u> EncodeWithCheck() const noexcept;
+  std::array<char, charCountBase64> EncodeWithCheck() const noexcept;
 
   [[nodiscard]]
   std::string EncodeStr() const noexcept;
   [[nodiscard]]
   std::string EncodeStrWithCheck() const noexcept;
-
-private:
-  [[nodiscard]]
-  Encoder24Bits LoadEncoder24bits() const noexcept;
 };
 
 class Encoder64Bits : public Encoder24PlusBits<std::uint64_t> {
 public:
-  Encoder64Bits() : Encoder24PlusBits{} {}
+  static constexpr size_t unitCount = 2U;
+  static constexpr size_t charCount = charCountBase64 * unitCount;
 
   [[nodiscard]]
-  std::array<char, 8u> Encode() const noexcept;
+  std::array<char, charCount> Encode() const noexcept;
   [[nodiscard]]
-  std::array<char, 8u> EncodeWithCheck() const noexcept;
+  std::array<char, charCount> EncodeWithCheck() const noexcept;
 
   [[nodiscard]]
   std::string EncodeStr() const noexcept;
@@ -216,12 +223,12 @@ public:
 
   [[nodiscard]]
   bool AreLast4CharactersValid() const noexcept {
-    return m_validByteCount > 3u;
+    return m_validByteCount > byteCountBase64;
   }
 
 private:
   [[nodiscard]]
-  std::array<Encoder24Bits, 2u> LoadEncoder24bits() const noexcept;
+  std::array<Encoder24Bits, unitCount> LoadEncoder48bits() const noexcept;
 };
 
 [[nodiscard]]
