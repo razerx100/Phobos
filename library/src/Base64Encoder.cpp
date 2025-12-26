@@ -1,6 +1,7 @@
 #include <Base64Encoder.hpp>
 #include <cstddef>
 #include <cstdint>
+#include <type_traits>
 
 namespace Phobos {
 static constexpr std::array s_characterMap{
@@ -328,6 +329,72 @@ std::string Encoder64Bits::EncodeStrWithCheck() const noexcept {
   return output;
 }
 
+namespace {
+template <typename T>
+concept UInt32OR64 = Plus24Bits_t<T> && requires(T) {
+  std::is_same_v<T, std::uint32_t> || std::is_same_v<T, std::uint64_t>;
+};
+
+template <UInt32OR64 T>
+struct Encoder32BitsPlus {
+  using type = Encoder32Bits;
+};
+
+template <>
+struct Encoder32BitsPlus<std::uint64_t> {
+  using type = Encoder64Bits;
+};
+
+template <UInt32OR64 T>
+void Encode32BitsPlus(std::vector<char> &encodedData, void const *dataHandleV,
+                      size_t elementCount) {
+  constexpr bool is64Bits = std::is_same_v<T, std::uint64_t>;
+  static constexpr size_t charCount =
+    is64Bits ? Encoder64Bits::charCount : charCountBase64;
+
+  auto const *dataHandle = static_cast<T const *>(dataHandleV);
+
+  size_t eIndex = 0U;
+  size_t cIndex = 0U;
+
+  typename Encoder32BitsPlus<T>::type encoder{};
+
+  for (; eIndex < elementCount;) {
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    const bool isLoaded = encoder.LoadData(*(dataHandle + eIndex));
+
+    const std::array<char, charCount> encodedChars{encoder.Encode()};
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    memcpy(std::data(encodedData) + cIndex, std::data(encodedChars), charCount);
+
+    cIndex += charCount;
+
+    if (isLoaded) {
+      ++eIndex;
+    }
+  }
+
+  {
+    encoder.LoadData(0U, 0U);
+
+    const std::array<char, charCount> encoded24Bits{encoder.EncodeWithCheck()};
+
+    size_t remainingByteCount = charCount;
+
+    if constexpr (is64Bits) {
+      if (!encoder.AreLast4CharactersValid()) {
+        remainingByteCount = charCountBase64;
+      }
+    }
+
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+    memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+           remainingByteCount);
+  }
+}
+} // namespace
+
 std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
                                size_t primitiveSize) noexcept {
   constexpr size_t oneByte = 1U;
@@ -411,77 +478,9 @@ std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
              charCountBase64);
     }
   } else if (primitiveSize == fourBytes) {
-    auto const *dataHandleU32 = static_cast<std::uint32_t const *>(dataHandle);
-
-    size_t eIndex = 0U;
-    size_t cIndex = 0U;
-
-    Encoder32Bits encoder{};
-
-    for (; eIndex < elementCount;) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      const bool isLoaded = encoder.LoadData(*(dataHandleU32 + eIndex));
-
-      const std::array<char, charCountBase64> encoded24Bits{encoder.Encode()};
-
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
-             charCountBase64);
-
-      cIndex += charCountBase64;
-
-      if (isLoaded) {
-        ++eIndex;
-      }
-    }
-
-    {
-      encoder.LoadData(0U, 0U);
-
-      const std::array<char, charCountBase64> encoded24Bits{
-        encoder.EncodeWithCheck()};
-
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
-             charCountBase64);
-    }
+    Encode32BitsPlus<std::uint32_t>(encodedData, dataHandle, elementCount);
   } else if (primitiveSize == eightBytes) {
-    constexpr size_t charCount = Encoder64Bits::charCount;
-
-    auto const *dataHandleU64 = static_cast<std::uint64_t const *>(dataHandle);
-
-    size_t eIndex = 0U;
-    size_t cIndex = 0U;
-
-    Encoder64Bits encoder{};
-
-    for (; eIndex < elementCount;) {
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      const bool isLoaded = encoder.LoadData(*(dataHandleU64 + eIndex));
-
-      const std::array<char, charCount> encoded48Bits{encoder.Encode()};
-
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded48Bits),
-             charCount);
-
-      cIndex += charCount;
-
-      if (isLoaded) {
-        ++eIndex;
-      }
-    }
-
-    {
-      encoder.LoadData(0U, 0U);
-
-      const std::array<char, charCount> encoded24Bits{
-        encoder.EncodeWithCheck()};
-
-      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
-             encoder.AreLast4CharactersValid() ? charCount : charCountBase64);
-    }
+    Encode32BitsPlus<std::uint64_t>(encodedData, dataHandle, elementCount);
   }
 
   return encodedData;
