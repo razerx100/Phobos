@@ -268,13 +268,13 @@ Encoder64Bits::Encode() const noexcept {
                                      '\0', '\0', '\0', '\0'};
 
   {
-    std::array<char, charCountBase64> tempOutput{encoder1.Encode()};
+    const std::array<char, charCountBase64> tempOutput{encoder1.Encode()};
 
     memcpy(std::data(output), std::data(tempOutput), charCountBase64);
   }
 
   {
-    std::array<char, charCountBase64> tempOutput{encoder2.Encode()};
+    const std::array<char, charCountBase64> tempOutput{encoder2.Encode()};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     memcpy(std::data(output) + charCountBase64, std::data(tempOutput),
@@ -292,13 +292,15 @@ Encoder64Bits::EncodeWithCheck() const noexcept {
                                      '\0', '\0', '\0', '\0'};
 
   {
-    std::array<char, charCountBase64> tempOutput{encoder1.EncodeWithCheck()};
+    const std::array<char, charCountBase64> tempOutput{
+      encoder1.EncodeWithCheck()};
 
     memcpy(std::data(output), std::data(tempOutput), charCountBase64);
   }
 
   if (AreLast4CharactersValid()) {
-    std::array<char, charCountBase64> tempOutput{encoder2.EncodeWithCheck()};
+    const std::array<char, charCountBase64> tempOutput{
+      encoder2.EncodeWithCheck()};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     memcpy(std::data(output) + charCountBase64, std::data(tempOutput),
@@ -328,118 +330,157 @@ std::string Encoder64Bits::EncodeStrWithCheck() const noexcept {
 
 std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
                                size_t primitiveSize) noexcept {
-  const size_t encodedCharacterCount =
-    (elementCount * primitiveSize + 2u) / 3u * 4u;
+  constexpr size_t oneByte = 1U;
+  constexpr size_t twoBytes = 2U;
+  constexpr size_t fourBytes = 4U;
+  constexpr size_t eightBytes = 8U;
 
-  std::vector<char> encodedData(encodedCharacterCount, '\0');
+  const size_t encodedUnitCount =
+    ((elementCount * primitiveSize + 2U) / byteCountBase64) * charCountBase64;
 
-  if (primitiveSize == 1u) {
-    auto dataHandleU8 = static_cast<std::uint8_t const *>(dataHandle);
+  std::vector<char> encodedData(encodedUnitCount, '\0');
 
-    size_t eIndex = 0u;
-    size_t cIndex = 0u;
+  if (primitiveSize == oneByte) {
+    constexpr size_t invalidByteCount = byteCountBase64 - oneByte;
+
+    auto const *dataHandleU8 = static_cast<std::uint8_t const *>(dataHandle);
+
+    size_t eIndex = 0U;
+    size_t cIndex = 0U;
 
     Encoder24Bits encoder{};
 
-    for (; eIndex + 2u < elementCount; eIndex += 3u) {
-      encoder.LoadData(dataHandleU8 + eIndex, 3u);
+    for (; eIndex + invalidByteCount < elementCount;
+         eIndex += byteCountBase64) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      encoder.LoadData(dataHandleU8 + eIndex, byteCountBase64);
 
-      std::array<char, 4u> encoded24Bits = encoder.Encode();
+      const std::array<char, charCountBase64> encoded24Bits{encoder.Encode()};
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+             charCountBase64);
 
-      cIndex += 4u;
+      cIndex += charCountBase64;
     }
 
     if (eIndex < elementCount) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       encoder.LoadData(dataHandleU8 + eIndex, elementCount - eIndex);
 
-      std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
+      const std::array<char, charCountBase64> encoded24Bits{
+        encoder.EncodeWithCheck()};
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+             charCountBase64);
     }
-  } else if (primitiveSize == 2u) {
-    auto dataHandleU16 = static_cast<std::uint16_t const *>(dataHandle);
+  } else if (primitiveSize == twoBytes) {
+    constexpr size_t invalidByteCount = byteCountBase64 - twoBytes;
 
-    size_t eIndex = 0u;
-    size_t cIndex = 0u;
+    auto const *dataHandleU16 = static_cast<std::uint16_t const *>(dataHandle);
+
+    size_t eIndex = 0U;
+    size_t cIndex = 0U;
 
     Encoder16Bits encoder{};
 
-    for (; eIndex + 1u < elementCount;) {
-      const size_t loadedElement = encoder.LoadData(dataHandleU16 + eIndex, 2u);
+    for (; eIndex + invalidByteCount < elementCount;) {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      const size_t loadedElement = encoder.LoadData(dataHandleU16 + eIndex, 2U);
 
-      std::array<char, 4u> encoded24Bits = encoder.Encode();
+      const std::array<char, charCountBase64> encoded24Bits = encoder.Encode();
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+             charCountBase64);
 
-      cIndex += 4u;
+      cIndex += charCountBase64;
       eIndex += loadedElement;
     }
 
     {
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       encoder.LoadData(dataHandleU16 + eIndex, elementCount - eIndex);
 
-      std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
+      const std::array<char, charCountBase64> encoded24Bits{
+        encoder.EncodeWithCheck()};
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+             charCountBase64);
     }
-  } else if (primitiveSize == 4u) {
-    auto dataHandleU32 = static_cast<std::uint32_t const *>(dataHandle);
+  } else if (primitiveSize == fourBytes) {
+    auto const *dataHandleU32 = static_cast<std::uint32_t const *>(dataHandle);
 
-    size_t eIndex = 0u;
-    size_t cIndex = 0u;
+    size_t eIndex = 0U;
+    size_t cIndex = 0U;
 
     Encoder32Bits encoder{};
 
     for (; eIndex < elementCount;) {
-      const bool isLoaded = encoder.LoadData(dataHandleU32[eIndex]);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      const bool isLoaded = encoder.LoadData(*(dataHandleU32 + eIndex));
 
-      std::array<char, 4u> encoded24Bits = encoder.Encode();
+      const std::array<char, charCountBase64> encoded24Bits{encoder.Encode()};
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+             charCountBase64);
 
-      cIndex += 4u;
+      cIndex += charCountBase64;
 
-      if (isLoaded)
+      if (isLoaded) {
         ++eIndex;
+      }
     }
 
     {
-      encoder.LoadData(0u, 0u);
+      encoder.LoadData(0U, 0U);
 
-      std::array<char, 4u> encoded24Bits = encoder.EncodeWithCheck();
+      const std::array<char, charCountBase64> encoded24Bits{
+        encoder.EncodeWithCheck()};
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 4u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
+             charCountBase64);
     }
-  } else if (primitiveSize == 8u) {
-    auto dataHandleU64 = static_cast<std::uint64_t const *>(dataHandle);
+  } else if (primitiveSize == eightBytes) {
+    constexpr size_t charCount = Encoder64Bits::charCount;
 
-    size_t eIndex = 0u;
-    size_t cIndex = 0u;
+    auto const *dataHandleU64 = static_cast<std::uint64_t const *>(dataHandle);
+
+    size_t eIndex = 0U;
+    size_t cIndex = 0U;
 
     Encoder64Bits encoder{};
 
     for (; eIndex < elementCount;) {
-      const bool isLoaded = encoder.LoadData(dataHandleU64[eIndex]);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      const bool isLoaded = encoder.LoadData(*(dataHandleU64 + eIndex));
 
-      std::array<char, 8u> encoded24Bits = encoder.Encode();
+      const std::array<char, charCount> encoded48Bits{encoder.Encode()};
 
-      memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits), 8u);
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+      memcpy(std::data(encodedData) + cIndex, std::data(encoded48Bits),
+             charCount);
 
-      cIndex += 8u;
+      cIndex += charCount;
 
-      if (isLoaded)
+      if (isLoaded) {
         ++eIndex;
+      }
     }
 
     {
-      encoder.LoadData(0u, 0u);
+      encoder.LoadData(0U, 0U);
 
-      std::array<char, 8u> encoded24Bits = encoder.EncodeWithCheck();
+      const std::array<char, charCount> encoded24Bits{
+        encoder.EncodeWithCheck()};
 
+      // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
       memcpy(std::data(encodedData) + cIndex, std::data(encoded24Bits),
-             encoder.AreLast4CharactersValid() ? 8u : 4u);
+             encoder.AreLast4CharactersValid() ? charCount : charCountBase64);
     }
   }
 
@@ -448,7 +489,7 @@ std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
 
 std::string EncodeBase64Str(void const *dataHandle, size_t elementCount,
                             size_t primitiveSize) noexcept {
-  std::vector<char> encodedData =
+  const std::vector<char> encodedData =
     EncodeBase64(dataHandle, elementCount, primitiveSize);
 
   return std::string{std::begin(encodedData), std::end(encodedData)};
