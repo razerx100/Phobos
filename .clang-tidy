@@ -9,8 +9,6 @@ Checks: "*,
         -modernize-use-trailing-return-type,
         -zircon-*,
         -readability-redundant-access-specifiers,
-        -misc-non-private-member-variables-in-classes,
-        -cppcoreguidelines-non-private-member-variables-in-classes,
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

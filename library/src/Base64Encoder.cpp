@@ -1,4 +1,5 @@
 #include <Base64Encoder.hpp>
+#include <cstddef>
 #include <cstdint>
 
 namespace Phobos {
@@ -226,45 +227,34 @@ std::string Encoder16Bits::EncodeStrWithCheck() const noexcept {
 
 // Encoder 32 Bits
 std::array<char, charCountBase64> Encoder32Bits::Encode() const noexcept {
-  Encoder24Bits encoder = LoadEncoder24bits();
-
-  return encoder.Encode();
+  return LoadEncoder24bits_().Encode();
 }
 
 std::array<char, charCountBase64>
 Encoder32Bits::EncodeWithCheck() const noexcept {
-  Encoder24Bits encoder = LoadEncoder24bits();
-
-  return encoder.EncodeWithCheck();
+  return LoadEncoder24bits_().EncodeWithCheck();
 }
 
 std::string Encoder32Bits::EncodeStr() const noexcept {
-  Encoder24Bits encoder = LoadEncoder24bits();
-
-  return encoder.EncodeStr();
+  return LoadEncoder24bits_().EncodeStr();
 }
 
 std::string Encoder32Bits::EncodeStrWithCheck() const noexcept {
-  Encoder24Bits encoder = LoadEncoder24bits();
-
-  return encoder.EncodeStrWithCheck();
+  return LoadEncoder24bits_().EncodeStrWithCheck();
 }
 
 // Encoder 64 Bits
 std::array<Encoder24Bits, Encoder64Bits::unitCount>
 Encoder64Bits::LoadEncoder48bits() const noexcept {
-  std::array<Encoder24Bits, unitCount> encoders{LoadEncoder24bits()};
+  const size_t validByteCount = GetValidByteCount();
 
-  if (m_validByteCount > byteCountBase64) {
-    Encoder24Bits &encoder2 = encoders[1];
+  std::array<Encoder24Bits, unitCount> encoders{
+    LoadEncoder24bits(0U, validByteCount)};
 
-    const auto validByteCount =
-      static_cast<size_t>(m_validByteCount) - byteCountBase64;
+  if (AreLast4CharactersValid()) {
+    const size_t remainingValidByteCount = validByteCount - byteCountBase64;
 
-    // NOLINTNEXTLINE(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
-    encoder2.LoadData(reinterpret_cast<std::uint8_t const *>(&m_storedValue) +
-                        byteCountBase64,
-                      std::min(validByteCount, byteCountBase64));
+    encoders[1] = LoadEncoder24bits(byteCountBase64, remainingValidByteCount);
   }
 
   return encoders;
@@ -272,26 +262,19 @@ Encoder64Bits::LoadEncoder48bits() const noexcept {
 
 std::array<char, Encoder64Bits::charCount>
 Encoder64Bits::Encode() const noexcept {
-  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
-
-  const Encoder24Bits &encoder1 = encoders[0];
-  const Encoder24Bits &encoder2 = encoders[1];
+  const auto [encoder1, encoder2] = LoadEncoder48bits();
 
   std::array<char, charCount> output{'\0', '\0', '\0', '\0',
                                      '\0', '\0', '\0', '\0'};
 
   {
-    std::array<char, charCountBase64> tempOutput{};
-
-    tempOutput = encoder1.Encode();
+    std::array<char, charCountBase64> tempOutput{encoder1.Encode()};
 
     memcpy(std::data(output), std::data(tempOutput), charCountBase64);
   }
 
   {
-    std::array<char, charCountBase64> tempOutput{};
-
-    tempOutput = encoder2.Encode();
+    std::array<char, charCountBase64> tempOutput{encoder2.Encode()};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     memcpy(std::data(output) + charCountBase64, std::data(tempOutput),
@@ -303,26 +286,19 @@ Encoder64Bits::Encode() const noexcept {
 
 std::array<char, Encoder64Bits::charCount>
 Encoder64Bits::EncodeWithCheck() const noexcept {
-  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
-
-  const Encoder24Bits &encoder1 = encoders[0];
-  const Encoder24Bits &encoder2 = encoders[1];
+  const auto [encoder1, encoder2] = LoadEncoder48bits();
 
   std::array<char, charCount> output{'\0', '\0', '\0', '\0',
                                      '\0', '\0', '\0', '\0'};
 
   {
-    std::array<char, charCountBase64> tempOutput{};
-
-    tempOutput = encoder1.EncodeWithCheck();
+    std::array<char, charCountBase64> tempOutput{encoder1.EncodeWithCheck()};
 
     memcpy(std::data(output), std::data(tempOutput), charCountBase64);
   }
 
   if (AreLast4CharactersValid()) {
-    std::array<char, charCountBase64> tempOutput{};
-
-    tempOutput = encoder2.EncodeWithCheck();
+    std::array<char, charCountBase64> tempOutput{encoder2.EncodeWithCheck()};
 
     // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
     memcpy(std::data(output) + charCountBase64, std::data(tempOutput),
@@ -333,29 +309,15 @@ Encoder64Bits::EncodeWithCheck() const noexcept {
 }
 
 std::string Encoder64Bits::EncodeStr() const noexcept {
-  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
+  const auto [encoder1, encoder2] = LoadEncoder48bits();
 
-  const Encoder24Bits &encoder1 = encoders[0];
-  const Encoder24Bits &encoder2 = encoders[1];
-
-  std::string output{};
-
-  output += encoder1.EncodeStr();
-
-  output += encoder2.EncodeStr();
-
-  return output;
+  return encoder1.EncodeStr() + encoder2.EncodeStr();
 }
 
 std::string Encoder64Bits::EncodeStrWithCheck() const noexcept {
-  std::array<Encoder24Bits, unitCount> encoders = LoadEncoder48bits();
+  const auto [encoder1, encoder2] = LoadEncoder48bits();
 
-  const Encoder24Bits &encoder1 = encoders[0];
-  const Encoder24Bits &encoder2 = encoders[1];
-
-  std::string output{};
-
-  output += encoder1.EncodeStrWithCheck();
+  std::string output{encoder1.EncodeStrWithCheck()};
 
   if (AreLast4CharactersValid()) {
     output += encoder2.EncodeStrWithCheck();

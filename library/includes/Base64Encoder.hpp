@@ -143,7 +143,8 @@ public:
       isNewValueLoaded = true;
     }
 
-    constexpr size_t remainingByteCountPerIntegral = integralByteCount % 3U;
+    constexpr size_t remainingByteCountPerIntegral =
+      integralByteCount % byteCountBase64;
 
     // We don't want to add any extra remaining bytes if the element count is
     // zero. Element count more than 1 would be invalid.
@@ -176,21 +177,28 @@ public:
 
 protected:
   [[nodiscard]]
-  Encoder24Bits LoadEncoder24bits() const noexcept {
+  Encoder24Bits LoadEncoder24bits(size_t offset,
+                                  size_t validByteCount) const noexcept {
     Encoder24Bits encoder{};
 
     encoder.LoadData(
-      &m_storedValue,
-      std::min(static_cast<size_t>(m_validByteCount), byteCountBase64));
+      // NOLINTNEXTLINE(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
+      reinterpret_cast<std::uint8_t const *>(&m_storedValue) + offset,
+      std::min(validByteCount, byteCountBase64));
 
     return encoder;
   }
 
-protected:
-  Integral_t m_storedValue;
-  Integral_t m_remainingBytes;
-  std::uint8_t m_remainingByteCount;
-  std::uint8_t m_validByteCount;
+  [[nodiscard]]
+  size_t GetValidByteCount() const noexcept {
+    return m_validByteCount;
+  }
+
+private:
+  Integral_t m_storedValue{0U};
+  Integral_t m_remainingBytes{0U};
+  std::uint8_t m_remainingByteCount{0U};
+  std::uint8_t m_validByteCount{0U};
 };
 
 class Encoder32Bits : public Encoder24PlusBits<std::uint32_t> {
@@ -204,6 +212,13 @@ public:
   std::string EncodeStr() const noexcept;
   [[nodiscard]]
   std::string EncodeStrWithCheck() const noexcept;
+
+private:
+  [[nodiscard]]
+  Encoder24Bits LoadEncoder24bits_() const noexcept
+  {
+    return LoadEncoder24bits(0U, GetValidByteCount());
+  }
 };
 
 class Encoder64Bits : public Encoder24PlusBits<std::uint64_t> {
@@ -223,7 +238,7 @@ public:
 
   [[nodiscard]]
   bool AreLast4CharactersValid() const noexcept {
-    return m_validByteCount > byteCountBase64;
+    return GetValidByteCount() > byteCountBase64;
   }
 
 private:
