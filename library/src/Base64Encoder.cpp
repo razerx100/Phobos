@@ -26,24 +26,22 @@ static constexpr std::array s_memcpyDetails{
   MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 2U, .size2 = 1U}};
 
 // Encoder 24 bits
-void Encoder24Bits::LoadData(void const *dataHandle, size_t byteCount) {
+void Encoder24Bits::LoadData(std::uint8_t const *dataHandle, size_t byteCount) {
   std::uint32_t data = 0U;
-
-  const auto *dataHandleU8 = static_cast<std::uint8_t const *>(dataHandle);
 
   const MemcpyDetails memcpyDetails = s_memcpyDetails.at(byteCount - 1U);
 
-  memcpy(&data, dataHandleU8, 1U);
+  memcpy(&data, dataHandle, 1U);
 
   data <<= bitsInByte;
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  memcpy(&data, dataHandleU8 + memcpyDetails.offset1, memcpyDetails.size1);
+  memcpy(&data, dataHandle + memcpyDetails.offset1, memcpyDetails.size1);
 
   data <<= bitsInByte;
 
   // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  memcpy(&data, dataHandleU8 + memcpyDetails.offset2, memcpyDetails.size2);
+  memcpy(&data, dataHandle + memcpyDetails.offset2, memcpyDetails.size2);
 
   m_data = data;
 
@@ -127,11 +125,9 @@ std::string Encoder24Bits::EncodeStrWithCheck() const noexcept {
 }
 
 // Encoder 16bits
-size_t Encoder16Bits::LoadData(void const *dataHandle,
+size_t Encoder16Bits::LoadData(std::uint16_t const *dataHandle,
                                size_t elementCount) noexcept {
   size_t elementsLoaded = 0U;
-
-  const auto *dataHandleU16 = static_cast<std::uint16_t const *>(dataHandle);
 
   constexpr bool isLittleEndian = std::endian::native == std::endian::little;
 
@@ -143,7 +139,7 @@ size_t Encoder16Bits::LoadData(void const *dataHandle,
     ++m_validByteCount;
 
     if (elementCount >= 1U) {
-      m_second = *dataHandleU16;
+      m_second = *dataHandle;
 
       if constexpr (isLittleEndian) {
         m_second = std::byteswap(m_second);
@@ -157,7 +153,7 @@ size_t Encoder16Bits::LoadData(void const *dataHandle,
     m_hasRemainingValue = false;
   } else {
     if (elementCount >= 1U) {
-      m_first = *dataHandleU16;
+      m_first = *dataHandle;
 
       if constexpr (isLittleEndian) {
         m_first = std::byteswap(m_first);
@@ -170,7 +166,7 @@ size_t Encoder16Bits::LoadData(void const *dataHandle,
 
     if (elementCount == 2U) {
       // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-      m_second = *(dataHandleU16 + 1U);
+      m_second = *(dataHandle + 1U);
 
       if constexpr (isLittleEndian) {
         m_second = std::byteswap(m_second);
@@ -195,7 +191,9 @@ Encoder24Bits Encoder16Bits::LoadEncoder24bits() const noexcept {
   // but the the valid byte count is 2u, that would be on the first value, so
   // load that.
   if (m_hasRemainingValue || m_validByteCount == 2U) {
-    encoder.LoadData(&m_first, m_validByteCount);
+    // NOLINTNEXTLINE(cppcoreguidelines-pro-type-reinterpret-cast)
+    encoder.LoadData(reinterpret_cast<std::uint8_t const *>(&m_first),
+                     m_validByteCount);
   } else {
     // If there is only one valid byte, it will be on the second byte, as we
     // shouldn't load just an 8bit value, and on 16bits data, valid byte can
@@ -346,13 +344,11 @@ struct Encoder32BitsPlus<std::uint64_t> {
 };
 
 template <UInt32OR64 T>
-void Encode32BitsPlus(std::vector<char> &encodedData, void const *dataHandleV,
+void Encode32BitsPlus(std::vector<char> &encodedData, T const *dataHandle,
                       size_t elementCount) {
   constexpr bool is64Bits = std::is_same_v<T, std::uint64_t>;
   static constexpr size_t charCount =
     is64Bits ? Encoder64Bits::charCount : charCountBase64;
-
-  auto const *dataHandle = static_cast<T const *>(dataHandleV);
 
   size_t eIndex = 0U;
   size_t cIndex = 0U;
@@ -478,9 +474,9 @@ std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
              charCountBase64);
     }
   } else if (primitiveSize == fourBytes) {
-    Encode32BitsPlus<std::uint32_t>(encodedData, dataHandle, elementCount);
+    Encode32BitsPlus(encodedData, static_cast<std::uint32_t const*>(dataHandle), elementCount);
   } else if (primitiveSize == eightBytes) {
-    Encode32BitsPlus<std::uint64_t>(encodedData, dataHandle, elementCount);
+    Encode32BitsPlus(encodedData, static_cast<std::uint64_t const*>(dataHandle), elementCount);
   }
 
   return encodedData;

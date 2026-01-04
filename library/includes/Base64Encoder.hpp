@@ -21,7 +21,7 @@ public:
   // Won't account for endianness. So, for any primitive larger than a byte,
   // the correct bit sized encoder should be used instead. Also
   // only loads 24bits/3 bytes.
-  void LoadData(void const *dataHandle, size_t byteCount);
+  void LoadData(std::uint8_t const *dataHandle, size_t byteCount);
 
   [[nodiscard]]
   bool IsByteValid(size_t index) const noexcept;
@@ -62,7 +62,8 @@ public:
   // loaded. Since 16bits are fewer than 24bits, we can't load 2 elements fully
   // and 8bits would remain. So, on the next turn only one element will be
   // loaded.
-  size_t LoadData(void const *dataHandle, size_t elementCount) noexcept;
+  size_t LoadData(std::uint16_t const *dataHandle,
+                  size_t elementCount) noexcept;
 
   [[nodiscard]]
   std::array<char, charCountBase64> Encode() const noexcept;
@@ -125,7 +126,7 @@ public:
       memcpy(reinterpret_cast<std::uint8_t *>(&tempStoredValue) +
                m_remainingByteCount,
              // NOLINTNEXTLINE(*-type-reinterpret-cast)
-             reinterpret_cast<std::uint8_t *>(&tempCurrentValue),
+             reinterpret_cast<std::uint8_t const *>(&tempCurrentValue),
              extraBytesToLoad);
 
       m_storedValue = tempStoredValue;
@@ -163,7 +164,7 @@ public:
 
     // NOLINTBEGIN(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
     memcpy(reinterpret_cast<std::uint8_t *>(&tempRemainingValue),
-           reinterpret_cast<std::uint8_t *>(&tempCurrentValue) +
+           reinterpret_cast<std::uint8_t const *>(&tempCurrentValue) +
              newlyLoadedValidByteCount,
            m_remainingByteCount);
     // NOLINTEND(*-bounds-pointer-arithmetic, *-type-reinterpret-cast)
@@ -215,8 +216,7 @@ public:
 
 private:
   [[nodiscard]]
-  Encoder24Bits LoadEncoder24bits_() const noexcept
-  {
+  Encoder24Bits LoadEncoder24bits_() const noexcept {
     return LoadEncoder24bits(0U, GetValidByteCount());
   }
 };
