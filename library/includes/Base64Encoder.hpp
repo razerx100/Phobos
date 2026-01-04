@@ -3,6 +3,7 @@
 #include <array>
 #include <bit>
 #include <bitset>
+#include <cassert>
 #include <cstddef>
 #include <cstdint>
 #include <string>
@@ -56,28 +57,36 @@ private:
   std::uint32_t m_validByteCount{};
 };
 
+namespace Decoder24Bits {
+[[nodiscard]]
+std::array<std::uint8_t, byteCountBase64> Decode(const std::string &encodedStr);
+
+[[nodiscard]]
+std::array<std::uint8_t, byteCountBase64>
+Decode(const std::array<char, charCountBase64> &encodedStr);
+} // namespace Decoder24Bits
+
 class Encoder16Bits {
 public:
   // The element count could be either 1 or 2. Returns the number of element
   // loaded. Since 16bits are fewer than 24bits, we can't load 2 elements fully
   // and 8bits would remain. So, on the next turn only one element will be
   // loaded.
-  size_t LoadData(std::uint16_t const *dataHandle,
-                  size_t elementCount) noexcept;
+  size_t LoadData(std::uint16_t const *dataHandle, size_t elementCount);
 
   [[nodiscard]]
-  std::array<char, charCountBase64> Encode() const noexcept;
+  std::array<char, charCountBase64> Encode() const;
   [[nodiscard]]
-  std::array<char, charCountBase64> EncodeWithCheck() const noexcept;
+  std::array<char, charCountBase64> EncodeWithCheck() const;
 
   [[nodiscard]]
-  std::string EncodeStr() const noexcept;
+  std::string EncodeStr() const;
   [[nodiscard]]
-  std::string EncodeStrWithCheck() const noexcept;
+  std::string EncodeStrWithCheck() const;
 
 private:
   [[nodiscard]]
-  Encoder24Bits LoadEncoder24bits() const noexcept;
+  Encoder24Bits LoadEncoder24bits() const;
 
 private:
   std::uint16_t m_first{0U};
@@ -97,9 +106,10 @@ public:
   // Some point the extra bit count will reach the Integral's bit limit and
   // then the function will load the extra bits fully instead of the argument
   // and return false. We need a way to load the last remaining bits, in such
-  // case the element count should be 0u. Element count which is more than 1
-  // would also be treated as 1, as we can't pass more than 1 element.
-  bool LoadData(Integral_t currentValue, size_t elementCount = 1U) noexcept {
+  // case the element count should be 0u.
+  bool LoadData(Integral_t currentValue, size_t elementCount = 1U) {
+    assert(elementCount <= 1U && "The elementCount can only be 0 or 1.");
+
     constexpr size_t integralByteCount = sizeof(Integral_t);
 
     constexpr bool isLittleEndian = std::endian::native == std::endian::little;
@@ -178,8 +188,7 @@ public:
 
 protected:
   [[nodiscard]]
-  Encoder24Bits LoadEncoder24bits(size_t offset,
-                                  size_t validByteCount) const noexcept {
+  Encoder24Bits LoadEncoder24bits(size_t offset, size_t validByteCount) const {
     Encoder24Bits encoder{};
 
     encoder.LoadData(
@@ -205,18 +214,18 @@ private:
 class Encoder32Bits : public Encoder24PlusBits<std::uint32_t> {
 public:
   [[nodiscard]]
-  std::array<char, charCountBase64> Encode() const noexcept;
+  std::array<char, charCountBase64> Encode() const;
   [[nodiscard]]
-  std::array<char, charCountBase64> EncodeWithCheck() const noexcept;
+  std::array<char, charCountBase64> EncodeWithCheck() const;
 
   [[nodiscard]]
-  std::string EncodeStr() const noexcept;
+  std::string EncodeStr() const;
   [[nodiscard]]
-  std::string EncodeStrWithCheck() const noexcept;
+  std::string EncodeStrWithCheck() const;
 
 private:
   [[nodiscard]]
-  Encoder24Bits LoadEncoder24bits_() const noexcept {
+  Encoder24Bits LoadEncoder24bits_() const {
     return LoadEncoder24bits(0U, GetValidByteCount());
   }
 };
@@ -227,14 +236,14 @@ public:
   static constexpr size_t charCount = charCountBase64 * unitCount;
 
   [[nodiscard]]
-  std::array<char, charCount> Encode() const noexcept;
+  std::array<char, charCount> Encode() const;
   [[nodiscard]]
-  std::array<char, charCount> EncodeWithCheck() const noexcept;
+  std::array<char, charCount> EncodeWithCheck() const;
 
   [[nodiscard]]
-  std::string EncodeStr() const noexcept;
+  std::string EncodeStr() const;
   [[nodiscard]]
-  std::string EncodeStrWithCheck() const noexcept;
+  std::string EncodeStrWithCheck() const;
 
   [[nodiscard]]
   bool AreLast4CharactersValid() const noexcept {
@@ -243,15 +252,15 @@ public:
 
 private:
   [[nodiscard]]
-  std::array<Encoder24Bits, unitCount> LoadEncoder48bits() const noexcept;
+  std::array<Encoder24Bits, unitCount> LoadEncoder48bits() const;
 };
 
 [[nodiscard]]
 std::vector<char> EncodeBase64(void const *dataHandle, size_t elementCount,
-                               size_t primitiveSize) noexcept;
+                               size_t primitiveSize);
 
 [[nodiscard]]
 std::string EncodeBase64Str(void const *dataHandle, size_t elementCount,
-                            size_t primitiveSize) noexcept;
+                            size_t primitiveSize);
 } // namespace Phobos
 #endif
