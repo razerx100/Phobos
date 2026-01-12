@@ -1,5 +1,5 @@
 #include <Base64Encoder.hpp>
-#include <cassert>
+#include <array>
 #include <cstddef>
 #include <cstdint>
 #include <limits>
@@ -16,6 +16,7 @@ constexpr std::array s_characterMap{
   '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '/'};
 
 constexpr std::array s_6bitOffsetMap{23, 17, 11, 5};
+constexpr std::array s_validBitToByteMap{ 0U, 1U, 1U, 2U, 3U };
 
 struct MemcpyDetails {
   std::uint32_t offset1;
@@ -28,6 +29,28 @@ constexpr std::array s_memcpyDetails{
   MemcpyDetails{.offset1 = 0U, .size1 = 0U, .offset2 = 0U, .size2 = 0U},
   MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 0U, .size2 = 0U},
   MemcpyDetails{.offset1 = 1U, .size1 = 1U, .offset2 = 2U, .size2 = 1U}};
+
+consteval std::uint8_t operator""_u8(unsigned long long value) noexcept {
+  return static_cast<std::uint8_t>(value);
+}
+
+constexpr auto u8Max = std::numeric_limits<std::uint8_t>::max();
+
+constexpr std::uint8_t s_equalCharValue = 0_u8;
+
+// clang-format off
+// Start at 43 or '+'.
+constexpr std::array s_bitMap{
+  62_u8, u8Max, u8Max, u8Max, 63_u8, 52_u8, 53_u8, 54_u8, 55_u8, 56_u8,
+  57_u8, 58_u8, 59_u8, 60_u8, 61_u8, u8Max, u8Max, u8Max, s_equalCharValue,
+  u8Max,u8Max, u8Max, 0_u8,  1_u8,  2_u8,  3_u8,  4_u8,  5_u8, 6_u8,
+  7_u8,8_u8, 9_u8, 10_u8, 11_u8, 12_u8, 13_u8, 14_u8, 15_u8, 16_u8,
+  17_u8,18_u8, 19_u8, 20_u8, 21_u8, 22_u8, 23_u8, 24_u8, 25_u8, u8Max,
+  u8Max,u8Max, u8Max, u8Max, u8Max, 26_u8, 27_u8, 28_u8, 29_u8, 30_u8,
+  31_u8,32_u8, 33_u8, 34_u8, 35_u8, 36_u8, 37_u8, 38_u8, 39_u8, 40_u8,
+  41_u8,42_u8, 43_u8, 44_u8, 45_u8, 46_u8, 47_u8, 48_u8, 49_u8, 50_u8,
+  51_u8};
+// clang-format on
 } // namespace
 
 // Encoder 24 bits
@@ -131,27 +154,23 @@ std::string Encoder24Bits::EncodeStrWithCheck() const noexcept {
                      Encode6bitsWithCheck_(2U), Encode6bitsWithCheck_(3U)};
 }
 
-namespace Decoder24Bits {
-namespace {
-consteval std::uint8_t operator""_u8(unsigned long long value) noexcept {
-  return static_cast<std::uint8_t>(value);
-}
-
-constexpr auto u8Max = std::numeric_limits<std::uint8_t>::max();
-
-// Start at 43.
-constexpr std::array s_bitMap{
-  62_u8, u8Max, u8Max, u8Max, 63_u8, 52_u8, 53_u8, 54_u8, 55_u8, 56_u8,
-  57_u8, 58_u8, 59_u8, 60_u8, 61_u8, u8Max, u8Max, u8Max, u8Max, u8Max,
-  u8Max, u8Max, 0_u8,  1_u8,  2_u8,  3_u8,  4_u8,  5_u8,
-};
-
-bool IsValidRange_(char character) noexcept {
+bool Encoder24Bits::IsValidRange_(char character) noexcept {
   return character >= '+' && character <= 'z';
 }
 
-void Set6BitValue_(size_t index, std::bitset<bitCountBase64> &bitset,
-                   std::uint8_t value) noexcept {
+size_t Encoder24Bits::GetValidCharCount_(char const *encodedStr) noexcept {
+  size_t count = 0U;
+
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  while (*(encodedStr + count) != '=')
+  {
+    ++count;
+  }
+
+  return count;
+}
+
+void Encoder24Bits::Set6BitValue_(size_t index, std::uint8_t value) noexcept {
   constexpr auto bitCount = static_cast<std::int64_t>(bitCountCharBase64);
 
   // Ok, private method.
@@ -164,23 +183,26 @@ void Set6BitValue_(size_t index, std::bitset<bitCountBase64> &bitset,
 
   for (std::int64_t valueIndex = bitCount - 1; bitOffset > endBit;
        --bitOffset, --valueIndex) {
-    bitset[bitOffset] = valueBitSet[valueIndex];
+    m_data[bitOffset] = valueBitSet[valueIndex];
   }
 }
 
-std::array<std::uint8_t, byteCountBase64> Decode_(char const *encodedStr) {
+void Encoder24Bits::LoadAndDecode_(char const *encodedStr) {
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-pointer-arithmetic)
-  if (!IsValidRange_(*(encodedStr + 0U)) ||
-      !IsValidRange_(*(encodedStr + 1U)) ||
-      !IsValidRange_(*(encodedStr + 2U)) ||
-      !IsValidRange_(*(encodedStr + 3U))) {
+  char const char1 = *(encodedStr + 0U);
+  char const char2 = *(encodedStr + 1U);
+  char const char3 = *(encodedStr + 2U);
+  char const char4 = *(encodedStr + 3U);
+
+  if (!IsValidRange_(char1) || !IsValidRange_(char2) || !IsValidRange_(char3) ||
+      !IsValidRange_(char4)) {
     throw std::runtime_error{"Invalid encoded string."};
   }
 
-  const size_t index1 = *(encodedStr + 0U) - '+';
-  const size_t index2 = *(encodedStr + 1U) - '+';
-  const size_t index3 = *(encodedStr + 2U) - '+';
-  const size_t index4 = *(encodedStr + 3U) - '+';
+  const size_t index1 = char1 - '+';
+  const size_t index2 = char2 - '+';
+  const size_t index3 = char3 - '+';
+  const size_t index4 = char4 - '+';
   // NOLINTEND(cppcoreguidelines-pro-bounds-pointer-arithmetic)
 
   // NOLINTBEGIN(cppcoreguidelines-pro-bounds-constant-array-index)
@@ -195,39 +217,33 @@ std::array<std::uint8_t, byteCountBase64> Decode_(char const *encodedStr) {
     throw std::runtime_error{"Invalid encoded string."};
   }
 
+  Set6BitValue_(0U, sixBitOne);
+  Set6BitValue_(1U, sixBitTwo);
+  Set6BitValue_(2U, sixBitThree);
+  Set6BitValue_(3U, sixBitFour);
+
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-constant-array-index)
+  m_validByteCount = s_validBitToByteMap[GetValidCharCount_(encodedStr)];
+}
+
+std::array<std::uint8_t, byteCountBase64>
+Encoder24Bits::GetDecodedData() const noexcept {
+  unsigned long decodedBitValue = m_data.to_ulong();
+
   std::array<std::uint8_t, byteCountBase64> decodedValue{};
 
-  std::bitset<bitCountBase64> decodedBitset{};
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  memcpy(std::data(decodedValue) + 2U, &decodedBitValue, 1U);
+  decodedBitValue >>= bitsInByte;
 
-  Set6BitValue_(0U, decodedBitset, sixBitOne);
-  Set6BitValue_(1U, decodedBitset, sixBitTwo);
-  Set6BitValue_(2U, decodedBitset, sixBitThree);
-  Set6BitValue_(3U, decodedBitset, sixBitFour);
+  // NOLINTNEXTLINE(cppcoreguidelines-pro-bounds-pointer-arithmetic)
+  memcpy(std::data(decodedValue) + 1U, &decodedBitValue, 1U);
+  decodedBitValue >>= bitsInByte;
 
-  const unsigned long decodedBitValue = decodedBitset.to_ulong();
-
-  memcpy(std::data(decodedValue), &decodedBitValue, byteCountBase64);
+  memcpy(std::data(decodedValue), &decodedBitValue, 1U);
 
   return decodedValue;
 }
-} // namespace
-
-std::array<std::uint8_t, byteCountBase64>
-Decode(const std::string &encodedStr) {
-  assert(std::size(encodedStr) <= charCountBase64 &&
-         "The encoded string must have 4 chars.");
-
-  return Decode_(std::data(encodedStr));
-}
-
-std::array<std::uint8_t, byteCountBase64>
-Decode(const std::array<char, charCountBase64> &encodedStr) {
-  assert(std::size(encodedStr) <= charCountBase64 &&
-         "The encoded string must have 4 chars.");
-
-  return Decode_(std::data(encodedStr));
-}
-} // namespace Decoder24Bits
 
 // Encoder 16bits
 size_t Encoder16Bits::LoadData(std::uint16_t const *dataHandle,

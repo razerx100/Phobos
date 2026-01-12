@@ -2,6 +2,7 @@
 
 #include <Base64Encoder.hpp>
 #include <array>
+#include <string>
 
 using namespace Phobos;
 
@@ -55,6 +56,48 @@ TEST(Base64Test, Load24Bits4Test) {
   EXPECT_EQ(encoder.IsByteValid(2U), false) << "The third byte is true.";
 
   EXPECT_EQ(encoder.EncodeStrWithCheck(), "====") << "Wrong encoded string.";
+}
+
+TEST(Base64Test, Decode24Bits1Test)
+{
+  std::string const encodedStr = "Aw==";
+
+  Encoder24Bits encoder{};
+
+  encoder.LoadAndDecode(encodedStr);
+
+  auto const decodedValues = encoder.GetDecodedData();
+
+  EXPECT_EQ(decodedValues[0], 3U);
+  EXPECT_EQ(decodedValues[1], 0U);
+  EXPECT_EQ(decodedValues[2], 0U);
+
+  EXPECT_EQ(encoder.IsByteValid(0U), true) << "The first byte is false.";
+  EXPECT_EQ(encoder.IsByteValid(1U), false) << "The second byte is true.";
+  EXPECT_EQ(encoder.IsByteValid(2U), false) << "The third byte is true.";
+
+  EXPECT_EQ(encoder.EncodeStrWithCheck(), encodedStr);
+}
+
+TEST(Base64Test, Decode24Bits2Test)
+{
+  std::string const encodedStr = "AgM=";
+
+  Encoder24Bits encoder{};
+
+  encoder.LoadAndDecode(encodedStr);
+
+  auto const decodedValues = encoder.GetDecodedData();
+
+  EXPECT_EQ(decodedValues[0], 2U);
+  EXPECT_EQ(decodedValues[1], 3U);
+  EXPECT_EQ(decodedValues[2], 0U);
+
+  EXPECT_EQ(encoder.IsByteValid(0U), true) << "The first byte is false.";
+  EXPECT_EQ(encoder.IsByteValid(1U), true) << "The second byte is false.";
+  EXPECT_EQ(encoder.IsByteValid(2U), false) << "The third byte is true.";
+
+  EXPECT_EQ(encoder.EncodeStrWithCheck(), encodedStr);
 }
 
 TEST(Base64Test, Load16BitsTest) {

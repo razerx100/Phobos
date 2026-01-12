@@ -9,6 +9,7 @@ Checks: "*,
         -modernize-use-trailing-return-type,
         -zircon-*,
         -readability-redundant-access-specifiers,
+        -bugprone-easily-swappable-parameters
 "
 WarningsAsErrors: ''
 HeaderFilterRegex: ''

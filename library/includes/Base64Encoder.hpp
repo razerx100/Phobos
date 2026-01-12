@@ -17,12 +17,27 @@ inline constexpr size_t bitCountCharBase64 = 6U;
 inline constexpr size_t bitCountBase64 = 24U; // 6 x 4 = 24bits.
 inline constexpr size_t byteCountBase64 = 3U;
 
+template <typename Container>
+concept StringContainer_t = requires(const Container &cont) {
+  { std::size(cont) } -> std::same_as<size_t>;
+  { std::data(cont) } -> std::same_as<char const *>;
+};
+
 class Encoder24Bits {
 public:
   // Won't account for endianness. So, for any primitive larger than a byte,
   // the correct bit sized encoder should be used instead. Also
   // only loads 24bits/3 bytes.
   void LoadData(std::uint8_t const *dataHandle, size_t byteCount);
+
+  template <StringContainer_t String_t>
+  void LoadAndDecode(String_t const &encodedStr) {
+    // The +1 is for a null terminated string.
+    assert((std::size(encodedStr) == charCountBase64 || std::size(encodedStr) == charCountBase64 + 1U) &&
+           "The encoded string must have 4 chars.");
+
+    LoadAndDecode_(std::data(encodedStr));
+  }
 
   [[nodiscard]]
   bool IsByteValid(size_t index) const noexcept;
@@ -39,6 +54,9 @@ public:
   std::string EncodeStrWithCheck() const noexcept;
 
   [[nodiscard]]
+  std::array<std::uint8_t, byteCountBase64> GetDecodedData() const noexcept;
+
+  [[nodiscard]]
   const std::bitset<bitCountBase64> &GetData() const noexcept {
     return m_data;
   }
@@ -52,19 +70,21 @@ private:
   [[nodiscard]]
   size_t Get6BitValue_(size_t index) const noexcept;
 
+  [[nodiscard]]
+  static bool IsValidRange_(char character) noexcept;
+  [[nodiscard]]
+  static size_t GetValidCharCount_(char const *encodedStr) noexcept;
+
+  void Set6BitValue_(size_t index, std::uint8_t value) noexcept;
+
+  void LoadAndDecode_(char const *encodedStr);
+
 private:
   std::bitset<bitCountBase64> m_data;
   std::uint32_t m_validByteCount{};
 };
 
-namespace Decoder24Bits {
-[[nodiscard]]
-std::array<std::uint8_t, byteCountBase64> Decode(const std::string &encodedStr);
-
-[[nodiscard]]
-std::array<std::uint8_t, byteCountBase64>
-Decode(const std::array<char, charCountBase64> &encodedStr);
-} // namespace Decoder24Bits
+namespace Decoder24Bits {} // namespace Decoder24Bits
 
 class Encoder16Bits {
 public:
